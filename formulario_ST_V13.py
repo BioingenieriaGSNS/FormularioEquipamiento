@@ -225,6 +225,9 @@ def subir_pdf_bytes_cloudinary(pdf_bytes, nombre_archivo, carpeta="solicitudes_s
     except Exception as e:
         error_msg = f"Error general al subir PDF: {str(e)}"
         return False, error_msg
+    except Exception as e:
+        error_msg = f"Error general al subir PDF: {str(e)}"
+        return False, error_msg
     
 def subir_multiples_archivos_cloudinary(archivos, carpeta="solicitudes_st"):
     """Sube múltiples archivos a Cloudinary"""
@@ -1777,9 +1780,14 @@ def mostrar_seccion_distribuidor(data, es_directo=False):
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"d_comercial_{form_key}")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"d_contacto_tec_{form_key}")
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"d_motivo_{form_key}")
-        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
+        
+        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler
+        if motivo_solicitud != "Baja de Alquiler":
+            equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
+        else:
+            equipo_propiedad = "Alquilado"  # Por defecto si es baja de alquiler
 
-        data.update({
+    data.update({
         'nombre_fantasia': nombre_fantasia,
         'razon_social': razon_social,
         'cuit': cuit,
@@ -1815,9 +1823,14 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
             st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"db_contacto_tec_{form_key}")
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"db_motivo_{form_key}")
-        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
+        
+        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler
+        if motivo_solicitud != "Baja de Alquiler":
+            equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
+        else:
+            equipo_propiedad = "Alquilado"  # Por defecto si es baja de alquiler
 
-        data.update({
+    data.update({
             'nombre_fantasia': nombre_fantasia,
             'razon_social': razon_social,
             'cuit': cuit,
@@ -1853,9 +1866,14 @@ def mostrar_seccion_institucion(data, es_directo=False):
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"i_comercial_{form_key}")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"i_contacto_tec_{form_key}")
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"i_motivo_{form_key}")
-        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"ib_propiedad_{form_key}")
+        
+        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler
+        if motivo_solicitud != "Baja de Alquiler":
+            equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"ib_propiedad_{form_key}")
+        else:
+            equipo_propiedad = "Alquilado"  # Por defecto si es baja de alquiler
 
-        data.update({
+    data.update({
             'nombre_fantasia': nombre_fantasia,
             'razon_social': razon_social,
             'cuit': cuit,
@@ -1891,9 +1909,14 @@ def mostrar_seccion_institucionB(data, es_directo=False):
             st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"ib_contacto_tec_{form_key}")
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"ib_motivo_{form_key}")
-        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"ib_propiedad_{form_key}")
+        
+        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler
+        if motivo_solicitud != "Baja de Alquiler":
+            equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"ib_propiedad_{form_key}")
+        else:
+            equipo_propiedad = "Alquilado"  # Por defecto si es baja de alquiler
 
-        data.update({
+    data.update({
         'nombre_fantasia': nombre_fantasia,
         'razon_social': razon_social,
         'cuit': cuit,
