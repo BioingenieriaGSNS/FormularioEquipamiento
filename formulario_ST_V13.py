@@ -469,13 +469,25 @@ def validar_campos_obligatorios(data):
         if not data.get('motivo_solicitud'):
             errores.append("Motivo de la solicitud es obligatorio")
     
-    # Validaciones de Servicio Técnico
+    # Validaciones según motivo de solicitud
     motivo = data.get('motivo_solicitud', '')
-    if motivo in ["Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)"]:
-        if not data.get('fallas_problemas'):
-            errores.append("Debe seleccionar al menos una falla o problema")
-        if not data.get('detalle_fallo'):
-            errores.append("El detalle del fallo técnico es obligatorio")
+    
+    if motivo == "Cambio de Alquiler":
+        if not data.get('motivo_cambio_alquiler', '').strip():
+            errores.append("Debe especificar el motivo del cambio de alquiler")
+    
+    elif motivo == "Cambio por falla de funcionamiento crítica":
+        if not data.get('detalle_fallo', '').strip():
+            errores.append("Debe describir la falla crítica que justifica el cambio")
+    
+    elif motivo in ["Servicio Técnico (reparaciones de equipos en general)", 
+                    "Servicio Post Venta (para alguno de nuestros productos adquiridos)"]:
+        fallas = data.get('fallas_problemas', [])
+        detalle = data.get('detalle_fallo', '')
+        
+        if not fallas and not detalle.strip():
+            tipo_req = "fallas" if "Técnico" in motivo else "consultas"
+            errores.append(f"Debe seleccionar al menos una opción o especificar en 'Otros' el motivo de su solicitud")
     
     # Validaciones de equipos
     equipos_validos = [
@@ -498,7 +510,7 @@ def validar_campos_obligatorios(data):
     
     return len(errores) == 0, errores
 
-def generar_pdf_solicitud(data, solicitud_id):
+def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     """
     Genera un PDF con el resumen de la solicitud
     Retorna: bytes del PDF
@@ -509,6 +521,9 @@ def generar_pdf_solicitud(data, solicitud_id):
     
     
     buffer = io.BytesIO()
+    # Determinar OST principal para el título
+    ost_principal = equipos_osts[0] if equipos_osts else solicitud_id
+    
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=letter, 
@@ -516,9 +531,9 @@ def generar_pdf_solicitud(data, solicitud_id):
         leftMargin=72, 
         topMargin=72, 
         bottomMargin=18,
-        title=f"Solicitud ST #{solicitud_id}",  
+        title=f"Solicitud ST - OST #{ost_principal}",  
         author="Syemed - Post Venta y ST",     
-        subject=f"Solicitud de Servicio Técnico #{solicitud_id}"  
+        subject=f"Solicitud de Servicio Técnico - OST #{ost_principal}"  
     )
     
     elementos = []
@@ -542,7 +557,7 @@ def generar_pdf_solicitud(data, solicitud_id):
     estilo_normal = estilos['Normal']
     
     # Título
-    elementos.append(Paragraph(f"Solicitud de Servicio Técnico #{solicitud_id}", estilo_titulo))
+    elementos.append(Paragraph(f"Solicitud de Servicio Técnico - OST #{ost_principal}", estilo_titulo))
     elementos.append(Paragraph(f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilo_normal))
     elementos.append(Spacer(1, 0.3*inch))
     
@@ -619,12 +634,14 @@ def generar_pdf_solicitud(data, solicitud_id):
     # Equipos
     elementos.append(Paragraph("EQUIPOS REGISTRADOS", estilo_subtitulo))
     
-    equipos_data = [["#", "Tipo", "Marca", "Modelo", "N° Serie", "Garantía"]]
+    equipos_data = [["OST", "Tipo", "Marca", "Modelo", "N° Serie", "Garantía"]]
     
     for i, equipo in enumerate(data.get('equipos', []), 1):
         if equipo.get('tipo_equipo') and equipo['tipo_equipo'] != "Seleccionar tipo...":
+            # Obtener el OST correspondiente a este equipo
+            ost_equipo = equipos_osts[i-1] if equipos_osts and i-1 < len(equipos_osts) else "N/A"
             equipos_data.append([
-                str(i),
+                f"#{ost_equipo}",
                 equipo.get('tipo_equipo', 'N/A'),
                 equipo.get('marca', 'N/A'),
                 equipo.get('modelo', 'N/A'),
@@ -659,7 +676,7 @@ def generar_pdf_solicitud(data, solicitud_id):
     buffer.close()
     
     return pdf_bytes
-def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data):
+def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data, equipos_osts=None):
     """
     Envía un email con el PDF adjunto usando Gmail
     """
@@ -746,6 +763,12 @@ def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data):
         num_equipos = len([eq for eq in data.get('equipos', []) 
                           if eq.get('tipo_equipo') != "Seleccionar tipo..."])
         
+        # Construir información de OSTs
+        info_osts = ""
+        if equipos_osts:
+            osts_formateados = ', '.join([f'#{ost}' for ost in equipos_osts])
+            info_osts = f"- OST(s) generado(s): {osts_formateados}\n"
+        
         # Construir cuerpo del email
         body = f"""Estimado/a,
 
@@ -754,7 +777,7 @@ Se ha registrado exitosamente su solicitud de servicio técnico.
 DETALLES DE LA SOLICITUD:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - ID de Solicitud: #{solicitud_id}
-- Solicitante: {info_solicitante}
+{info_osts}- Solicitante: {info_solicitante}
 {info_telefono}
 {info_contacto_tecnico}
 - Cantidad de equipos: {num_equipos}
@@ -889,14 +912,27 @@ def insertar_solicitud(data, pdf_url=None):  # 👈 AGREGAR pdf_url=None
             elif equipo_corresponde_a == "Paciente/Particular":
                 cliente = data.get('nombre_apellido_paciente', 'Syemed')
         
-        # Determinar observación de ingreso
+        # Determinar observación de ingreso según el motivo
         observacion_ingreso = None
         motivo_solicitud = data.get('motivo_solicitud', '')
         
-        if motivo_solicitud not in ["Equipo de Stock", "Baja de Alquiler"]:
-            fallas_problemas = data.get('fallas_problemas', [])
-            if fallas_problemas:
-                observacion_ingreso = ', '.join(fallas_problemas)
+        if motivo_solicitud == "Cambio de Alquiler":
+            # Para cambio de alquiler, usar el motivo específico
+            observacion_ingreso = data.get('motivo_cambio_alquiler', '')
+            
+        elif motivo_solicitud not in ["Equipo de Stock", "Baja de Alquiler"]:
+            # Para otros motivos, combinar fallas y detalles
+            fallas = data.get('fallas_problemas', [])
+            detalle = data.get('detalle_fallo', '')
+            
+            partes = []
+            if fallas:
+                partes.append(', '.join(fallas))
+            if detalle:
+                partes.append(detalle)
+            
+            if partes:
+                observacion_ingreso = ' | '.join(partes)
         
         # Insertar equipos (CON fecha_ingreso, OST se genera automático)
         equipos_ids = []
@@ -984,7 +1020,7 @@ def insertar_solicitud(data, pdf_url=None):  # 👈 AGREGAR pdf_url=None
         if equipos_osts:
             print(f"\n✅ OSTs generados: {', '.join(map(str, equipos_osts))}")
         
-        return True, solicitud_id
+        return True, solicitud_id, equipos_osts
         
     except Exception as e:
         conn.rollback()
@@ -1587,38 +1623,125 @@ def main():
         motivo = data.get('motivo_solicitud', '')
         
         # SECCIÓN 6: Detalles de Servicio Técnico
+        # SECCIÓN DE FALLAS/PROBLEMAS CLASIFICADA POR MOTIVO
         if motivo in ["Servicio Técnico (reparaciones de equipos en general)", 
                       "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
                       "Cambio por falla de funcionamiento crítica"]:
             st.markdown('<div class="section-header"><h2>Detalles del Servicio Técnico</h2></div>', unsafe_allow_html=True)
             
-            st.markdown("**Fallas y/o problemas presentados**")
-            #st.info("💡 Seleccione todas las fallas que describan el problema y luego continúe más abajo")
-            fallas_seleccionadas = st.multiselect(
-                "Seleccione todas las opciones que apliquen y haga clic fuera del menú cuando termine.*", 
-                FALLAS_PROBLEMAS,
-                key=f"fallas_{st.session_state.form_key}",
-                help="Puede seleccionar múltiples opciones. Haga clic fuera del menú cuando termine.",
-                #label_visibility="collapsed"
-            )
+            # Inicializar variables
+            fallas_seleccionadas = []
+            detalle_fallo = ""
             
-            # Mostrar resumen de selección
-            if fallas_seleccionadas:
-                st.success(f" Haga clic fuera del menú cuando termine. ✅ {len(fallas_seleccionadas)} falla(s) seleccionada(s):")
-                for falla in fallas_seleccionadas:
-                    st.caption(f"  • {falla}")
-            elif st.session_state.get(f"fallas_{st.session_state.form_key}") is not None:
-                st.warning("⚠️ Debe seleccionar al menos una falla")
+            # SERVICIO TÉCNICO
+            if motivo == "Servicio Técnico (reparaciones de equipos en general)":
+                st.markdown("#### Fallas de Servicio Técnico")
+                st.info("""
+                **¿Cuándo solicitar Servicio Técnico?**
+                - Equipo no enciende o presenta fallas eléctricas
+                - Problemas mecánicos o de funcionamiento
+                - Ruidos anormales o vibraciones
+                - Pérdida de precisión o calibración
+                - Desgaste de componentes
+                - Mantenimiento preventivo programado
+                """)
+                
+                FALLAS_ST = [
+                    "No enciende",
+                    "Falla eléctrica",
+                    "Problema mecánico",
+                    "Ruidos anormales",
+                    "Pérdida de precisión",
+                    "Necesita calibración",
+                    "Desgaste de piezas",
+                    "Mantenimiento preventivo",
+                    "Falla en display/pantalla",
+                    "Problema de conectividad"
+                ]
+                
+                fallas_seleccionadas = st.multiselect(
+                    "Seleccione las fallas detectadas",
+                    FALLAS_ST,
+                    key=f"fallas_st_{st.session_state.form_key}"
+                )
+                
+                # Mostrar resumen de selección
+                if fallas_seleccionadas:
+                    st.success(f"✅ {len(fallas_seleccionadas)} falla(s) seleccionada(s)")
+                
+                detalle_fallo = st.text_area(
+                    "Otros problemas o detalles adicionales",
+                    placeholder="Describa cualquier otro problema o detalle relevante...",
+                    key=f"detalle_st_{st.session_state.form_key}",
+                    height=100
+                )
             
-           # st.markdown("---")  # Separador visual
+            # POST VENTA
+            elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+                st.markdown("#### Consultas de Post Venta")
+                st.info("""
+                **¿Cuándo solicitar Post Venta?**
+                - Dudas sobre el uso del equipo o configuración inicial.
+                - Solicitud de capacitación
+                - Consulta sobre garantía
+                - Solicitud de manuales o documentación
+                - Accesorios o repuestos
+                - Actualización de software
+                """)
+                
+                CONSULTAS_PV = [
+                    "Consulta sobre uso del equipo",
+                    "Solicitud de capacitación",
+                    "Consulta sobre garantía",
+                    "Solicitud de manual/documentación",
+                    "Necesito accesorios",
+                    "Necesito repuestos",
+                    "Actualización de software",
+                    "Configuración inicial"
+                ]
+                
+                fallas_seleccionadas = st.multiselect(
+                    "Seleccione el tipo de consulta",
+                    CONSULTAS_PV,
+                    key=f"consulta_pv_{st.session_state.form_key}"
+                )
+                
+                # Mostrar resumen de selección
+                if fallas_seleccionadas:
+                    st.success(f"✅ {len(fallas_seleccionadas)} consulta(s) seleccionada(s)")
+                
+                detalle_fallo = st.text_area(
+                    "Otras consultas o detalles adicionales",
+                    placeholder="Describa su consulta o necesidad...",
+                    key=f"detalle_pv_{st.session_state.form_key}",
+                    height=100
+                )
             
-            detalle_fallo = st.text_area(
-                "Detalle cómo se presentó el fallo técnico *", 
-                height=100,
-                key=f"detalle_fallo_{st.session_state.form_key}",
-                placeholder="Describa con el mayor detalle posible cómo y cuándo se presentó el problema..."
-            )
-            
+            # FALLA CRÍTICA
+            elif motivo == "Cambio por falla de funcionamiento crítica":
+                st.markdown("#### Falla de Funcionamiento Crítica")
+                st.warning("""
+                **¿Qué es una falla crítica?**
+                
+                Una falla crítica es aquella que impide el uso del equipo de forma segura o efectiva, requiriendo su reemplazo inmediato.
+                
+                **Ejemplos:**                         
+                -El equipo no enciende.
+                -Hay riesgo eléctrico, fuego, humo, olor a quemado.
+                -El equipo se apaga solo o falla en medio de un uso clínico.
+                -El equipo muestra valores erráticos que pueden poner en riesgo al paciente.
+                -La falla impide totalmente utilizarlo para su función principal.
+                -El problema compromete la seguridad (descargas, piezas sueltas, sobrecalentamiento).
+                """)
+                
+                fallas_seleccionadas = []  # No usar multiselect
+                
+                detalle_fallo = st.text_area(
+                    "Describa la falla crítica *",
+                    placeholder="Describa detalladamente la falla que justifica el cambio del equipo. Sea específico sobre por qué es crítica.",
+                    key=f"falla_critica_{st.session_state.form_key}",
+                    height=150
+                )
                                
             diagnostico_paciente = st.text_area(
                 "Diagnóstico del Paciente (si aplica)",
@@ -1779,13 +1902,31 @@ def mostrar_seccion_distribuidor(data, es_directo=False):
             st.warning("⚠️ Solo se permiten números en el teléfono")
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"d_comercial_{form_key}")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"d_contacto_tec_{form_key}")
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"d_motivo_{form_key}")
-        
-        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler
-        if motivo_solicitud != "Baja de Alquiler":
+        motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
+            ["", 
+            "Servicio Técnico (reparaciones de equipos en general)", 
+            "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+            "Baja de Alquiler", 
+            "Cambio de Alquiler",
+            "Cambio por falla de funcionamiento crítica"], 
+            key=f"d_motivo_{form_key}")
+
+        # Campo de motivos para Cambio de Alquiler
+        motivo_cambio_alquiler = ""
+        if motivo_solicitud == "Cambio de Alquiler":
+            st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
+            motivo_cambio_alquiler = st.text_area(
+                "Motivo del cambio de alquiler *", 
+                placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
+                key=f"d_motivo_cambio_{form_key}",
+                height=100
+            )
+
+        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler ni Cambio de Alquiler
+        if motivo_solicitud not in ["Baja de Alquiler", "Cambio de Alquiler"]:
             equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
         else:
-            equipo_propiedad = "Alquilado"  # Por defecto si es baja de alquiler
+            equipo_propiedad = "Alquilado"
 
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -1796,7 +1937,8 @@ def mostrar_seccion_distribuidor(data, es_directo=False):
         'comercial_syemed': comercial_syemed, 
         'contacto_tecnico': contacto_tecnico,
         'motivo_solicitud': motivo_solicitud,
-        'equipo_propiedad': equipo_propiedad  
+        'equipo_propiedad': equipo_propiedad,
+        'motivo_cambio_alquiler': motivo_cambio_alquiler  
     })
 
 
@@ -1822,13 +1964,31 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
         if telefono_input and not telefono_input.isdigit():
             st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"db_contacto_tec_{form_key}")
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"db_motivo_{form_key}")
-        
-        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler
-        if motivo_solicitud != "Baja de Alquiler":
-            equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
-        else:
-            equipo_propiedad = "Alquilado"  # Por defecto si es baja de alquiler
+        motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
+        ["", 
+        "Servicio Técnico (reparaciones de equipos en general)", 
+        "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+        "Baja de Alquiler", 
+        "Cambio de Alquiler",
+        "Cambio por falla de funcionamiento crítica"], 
+        key=f"d_motivo_{form_key}")
+
+    # Campo de motivos para Cambio de Alquiler
+    motivo_cambio_alquiler = ""
+    if motivo_solicitud == "Cambio de Alquiler":
+        st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
+        motivo_cambio_alquiler = st.text_area(
+            "Motivo del cambio de alquiler *", 
+            placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
+            key=f"d_motivo_cambio_{form_key}",
+            height=100
+        )
+
+    # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler ni Cambio de Alquiler
+    if motivo_solicitud not in ["Baja de Alquiler", "Cambio de Alquiler"]:
+        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
+    else:
+        equipo_propiedad = "Alquilado"
 
     data.update({
             'nombre_fantasia': nombre_fantasia,
@@ -1838,7 +1998,8 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
             'contacto_telefono': contacto_telefono,
             'contacto_tecnico': contacto_tecnico,
             'motivo_solicitud': motivo_solicitud,
-            'equipo_propiedad': equipo_propiedad  
+            'equipo_propiedad': equipo_propiedad,
+            'motivo_cambio_alquiler': motivo_cambio_alquiler  
         })
 
 
@@ -1865,13 +2026,31 @@ def mostrar_seccion_institucion(data, es_directo=False):
             st.warning("⚠️ Solo se permiten números en el teléfono")
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"i_comercial_{form_key}")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"i_contacto_tec_{form_key}")
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"i_motivo_{form_key}")
-        
-        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler
-        if motivo_solicitud != "Baja de Alquiler":
-            equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"ib_propiedad_{form_key}")
-        else:
-            equipo_propiedad = "Alquilado"  # Por defecto si es baja de alquiler
+        motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
+        ["", 
+        "Servicio Técnico (reparaciones de equipos en general)", 
+        "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+        "Baja de Alquiler", 
+        "Cambio de Alquiler",
+        "Cambio por falla de funcionamiento crítica"], 
+        key=f"d_motivo_{form_key}")
+
+    # Campo de motivos para Cambio de Alquiler
+    motivo_cambio_alquiler = ""
+    if motivo_solicitud == "Cambio de Alquiler":
+        st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
+        motivo_cambio_alquiler = st.text_area(
+            "Motivo del cambio de alquiler *", 
+            placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
+            key=f"d_motivo_cambio_{form_key}",
+            height=100
+        )
+
+    # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler ni Cambio de Alquiler
+    if motivo_solicitud not in ["Baja de Alquiler", "Cambio de Alquiler"]:
+        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
+    else:
+        equipo_propiedad = "Alquilado"
 
     data.update({
             'nombre_fantasia': nombre_fantasia,
@@ -1882,7 +2061,8 @@ def mostrar_seccion_institucion(data, es_directo=False):
             'comercial_syemed': comercial_syemed, 
             'contacto_tecnico': contacto_tecnico,
             'motivo_solicitud': motivo_solicitud,
-            'equipo_propiedad': equipo_propiedad  
+            'equipo_propiedad': equipo_propiedad,
+            'motivo_cambio_alquiler': motivo_cambio_alquiler  
         })
 
 
@@ -1908,13 +2088,31 @@ def mostrar_seccion_institucionB(data, es_directo=False):
         if telefono_input and not telefono_input.isdigit():
             st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"ib_contacto_tec_{form_key}")
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"ib_motivo_{form_key}")
-        
-        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler
-        if motivo_solicitud != "Baja de Alquiler":
-            equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"ib_propiedad_{form_key}")
-        else:
-            equipo_propiedad = "Alquilado"  # Por defecto si es baja de alquiler
+        motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
+        ["", 
+        "Servicio Técnico (reparaciones de equipos en general)", 
+        "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+        "Baja de Alquiler", 
+        "Cambio de Alquiler",
+        "Cambio por falla de funcionamiento crítica"], 
+        key=f"d_motivo_{form_key}")
+
+    # Campo de motivos para Cambio de Alquiler
+    motivo_cambio_alquiler = ""
+    if motivo_solicitud == "Cambio de Alquiler":
+        st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
+        motivo_cambio_alquiler = st.text_area(
+            "Motivo del cambio de alquiler *", 
+            placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
+            key=f"d_motivo_cambio_{form_key}",
+            height=100
+        )
+
+    # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler ni Cambio de Alquiler
+    if motivo_solicitud not in ["Baja de Alquiler", "Cambio de Alquiler"]:
+        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
+    else:
+        equipo_propiedad = "Alquilado"
 
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -1924,7 +2122,8 @@ def mostrar_seccion_institucionB(data, es_directo=False):
         'contacto_telefono': contacto_telefono,
         'contacto_tecnico': contacto_tecnico,
         'motivo_solicitud': motivo_solicitud,
-        'equipo_propiedad': equipo_propiedad  
+        'equipo_propiedad': equipo_propiedad,
+        'motivo_cambio_alquiler': motivo_cambio_alquiler  
     })
 
     
@@ -2241,7 +2440,7 @@ def procesar_formulario(data):
     
     # 1. GUARDAR SOLICITUD EN BD PRIMERO (sin PDF)
     with st.spinner("💾 Guardando solicitud en base de datos..."):
-        exito, resultado = insertar_solicitud(data, pdf_url=None)
+        exito, resultado, equipos_osts = insertar_solicitud(data, pdf_url=None)
     
     if not exito:
         st.error(f"❌ Error al guardar la solicitud: {resultado}")
@@ -2251,12 +2450,17 @@ def procesar_formulario(data):
     st.session_state['formulario_enviado'] = True
     st.session_state['solicitud_id'] = solicitud_id
     
-    st.success(f"✅ Solicitud #{solicitud_id} guardada correctamente!")
+    # Mostrar OSTs generados si existen
+    if equipos_osts:
+        osts_texto = ', '.join([f'#{ost}' for ost in equipos_osts])
+        st.success(f"✅ Solicitud #{solicitud_id} guardada correctamente! OST(s): {osts_texto}")
+    else:
+        st.success(f"✅ Solicitud #{solicitud_id} guardada correctamente!")
     
-    # 2. GENERAR PDF CON EL ID CORRECTO
+    # 2. GENERAR PDF CON EL ID CORRECTO Y LOS OSTs
     try:
         with st.spinner("📄 Generando PDF..."):
-            pdf_bytes = generar_pdf_solicitud(data, solicitud_id=solicitud_id)
+            pdf_bytes = generar_pdf_solicitud(data, solicitud_id=solicitud_id, equipos_osts=equipos_osts)
             pdf_filename = f"solicitud_ST_{solicitud_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     except Exception as e:
         st.error(f"❌ Error al generar PDF: {e}")
@@ -2305,7 +2509,8 @@ def procesar_formulario(data):
                 destinatario=data.get('email'),
                 solicitud_id=solicitud_id,
                 pdf_bytes=pdf_bytes,
-                data=data
+                data=data,
+                equipos_osts=equipos_osts
             )
             
             if email_enviado:

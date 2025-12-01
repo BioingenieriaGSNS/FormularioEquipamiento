@@ -1,1 +1,7 @@
 {"timestamp": "2025-12-01T10:29:57.776177", "tipo": "SOLICITUD_EXITOSA", "user_id": "acbaf605eb52ee91d59cbb46a952b263", "detalles": {"email": "g@gmail.com", "tipo_solicitante": "Distribuidor", "num_equipos": 1}}
+{"timestamp": "2025-12-01T12:02:48.155940", "tipo": "SOLICITUD_EXITOSA", "user_id": "12a1d05953238aa8686ab7872b6dfed1", "detalles": {"email": "hola@algo.com", "tipo_solicitante": "Institución", "num_equipos": 1}}
+{"timestamp": "2025-12-01T12:09:39.986484", "tipo": "SOLICITUD_EXITOSA", "user_id": "6e42cec137fe54a99788206d93f975e2", "detalles": {"email": "pruebasn@gmail.com", "tipo_solicitante": "Distribuidor", "num_equipos": 4}}
+{"timestamp": "2025-12-01T15:19:35.616015", "tipo": "SOLICITUD_EXITOSA", "user_id": "0ec903709768d73beaebf86307a8c5f9", "detalles": {"email": "hola@algo.com", "tipo_solicitante": "Institución", "num_equipos": 1}}
+{"timestamp": "2025-12-01T15:33:17.875602", "tipo": "SOLICITUD_EXITOSA", "user_id": "dc30c48b20c6f4240bc6be1f1038aa7b", "detalles": {"email": "g@gmail.com", "tipo_solicitante": "Institución", "num_equipos": 1}}
+{"timestamp": "2025-12-01T15:46:14.591065", "tipo": "SOLICITUD_EXITOSA", "user_id": "9a37212b0ffe09903d156766d6220ace", "detalles": {"email": "hola@algo.com", "tipo_solicitante": "Distribuidor", "num_equipos": 1}}
+{"timestamp": "2025-12-01T15:57:03.117121", "tipo": "SOLICITUD_EXITOSA", "user_id": "4a6201d65dd8457a6b3c09516815262a", "detalles": {"email": "hola@algo.com", "tipo_solicitante": "Distribuidor", "num_equipos": 1}}
