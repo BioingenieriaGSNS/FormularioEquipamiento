@@ -1338,11 +1338,13 @@ def insertar_solicitud(data, pdf_url=None):
         return True, solicitud_id, equipos_osts
         
     except Exception as e:
-        conn.rollback()
+        if conn:
+            conn.rollback()
         print(f"❌ Error en insertar_solicitud: {str(e)}")  # Debug
         return False, str(e)
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 # ============================================================================
 # 1. RATE LIMITING - Limitar solicitudes por IP/Email
 # ============================================================================
@@ -2488,6 +2490,9 @@ def mostrar_seccion_baja_alquiler(data):
     equipo_falla = None
     tipo_falla = None
     motivo_baja_otro = None
+    motivo_baja = ""
+    observacion_baja = ""
+    estado_equipo = ""
     
     if fin_contrato == "Sí":
         equipo_falla = st.selectbox(
@@ -2503,6 +2508,12 @@ def mostrar_seccion_baja_alquiler(data):
                 placeholder="Describa detalladamente la falla presentada...",
                 key=f"tipo_falla_fin_{form_key}"
             )
+            motivo_baja = "Fin de contrato"
+            observacion_baja = tipo_falla if tipo_falla else ""
+            estado_equipo = "Con falla"
+        elif equipo_falla == "No":
+            motivo_baja = "Fin de contrato"
+            estado_equipo = "Funcional"
     
     elif fin_contrato == "No":
         equipo_falla = st.selectbox(
@@ -2518,6 +2529,9 @@ def mostrar_seccion_baja_alquiler(data):
                 placeholder="Describa detalladamente la falla presentada...",
                 key=f"tipo_falla_no_fin_{form_key}"
             )
+            motivo_baja = "Sin fin contrato, pero falla en el equipo"
+            observacion_baja = tipo_falla if tipo_falla else ""
+            estado_equipo = "Con falla"
         elif equipo_falla == "No":
             motivo_baja_otro = st.text_area(
                 "Comente el motivo de baja *",
@@ -2525,12 +2539,18 @@ def mostrar_seccion_baja_alquiler(data):
                 placeholder="Indique el motivo por el cual solicita la baja del alquiler...",
                 key=f"motivo_baja_otro_{form_key}"
             )
+            motivo_baja = "Otros motivos"
+            observacion_baja = motivo_baja_otro if motivo_baja_otro else ""
+            estado_equipo = "Funcional"
     
     data.update({
         'fin_contrato': fin_contrato,
         'equipo_falla': equipo_falla,
         'tipo_falla': tipo_falla,
-        'motivo_baja_otro': motivo_baja_otro
+        'motivo_baja_otro': motivo_baja_otro,
+        'motivo_baja': motivo_baja,
+        'observacion_baja': observacion_baja,
+        'estado_equipo': estado_equipo
     })
 
 def mostrar_seccion_equipos(data, contexto="general"):
@@ -2794,16 +2814,24 @@ def procesar_formulario(data):
             if exito_pdf:
                 pdf_url = resultado_pdf
                 # Actualizar BD con la URL del PDF
-                conn = psycopg2.connect(DATABASE_URL)
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE solicitudes SET pdf_url = %s WHERE id = %s",
-                    (pdf_url, solicitud_id)
-                )
-                conn.commit()
-                cursor.close()
-                conn.close()
-                st.success("✅ PDF guardado en la nube")
+                conn = None
+                try:
+                    conn = psycopg2.connect(DATABASE_URL)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "UPDATE solicitudes SET pdf_url = %s WHERE id = %s",
+                        (pdf_url, solicitud_id)
+                    )
+                    conn.commit()
+                    cursor.close()
+                    st.success("✅ PDF guardado en la nube")
+                except Exception as e:
+                    if conn:
+                        conn.rollback()
+                    st.warning(f"⚠️ Error al actualizar PDF en BD: {e}")
+                finally:
+                    if conn:
+                        conn.close()
             else:
                 st.warning(f"⚠️ No se pudo guardar PDF: {resultado_pdf}")
     except Exception as e:
