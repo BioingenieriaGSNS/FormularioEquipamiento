@@ -512,7 +512,7 @@ def validar_campos_obligatorios(data):
 
 def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     """
-    Genera un PDF con el resumen de la solicitud
+    Genera un PDF con el resumen completo de la solicitud organizado por categorías
     Retorna: bytes del PDF
     """
 
@@ -561,77 +561,194 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     elementos.append(Paragraph(f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilo_normal))
     elementos.append(Spacer(1, 0.3*inch))
     
-    # Información del solicitante
-    elementos.append(Paragraph("INFORMACIÓN DEL SOLICITANTE", estilo_subtitulo))
-    
-    info_basica = [
-        ["Correo electrónico:", data.get('email', 'N/A')],
-        ["Tipo de solicitante:", data.get('quien_completa', 'N/A')],
-    ]
-    
+    # ====================================================================================
+    # SECCIÓN 1: INFORMACIÓN SEGÚN TIPO DE SOLICITANTE
+    # ====================================================================================
     quien_completa = data.get('quien_completa', '')
     
+    elementos.append(Paragraph("INFORMACIÓN DE LA SOLICITUD", estilo_subtitulo))
+    
+    info_general = [
+        ["Correo electrónico:", data.get('email', 'N/A')],
+        ["Tipo de solicitante:", quien_completa or 'N/A'],
+    ]
+    
+    # ========== COLABORADOR DE SYEMED ==========
     if quien_completa == "Colaborador de Syemed":
-        info_basica.extend([
-            ["Área:", data.get('area_solicitante', 'N/A')],
+        info_general.extend([
+            ["Área solicitante:", data.get('area_solicitante', 'N/A')],
             ["Solicitante:", data.get('solicitante', 'N/A')],
-            ["Nivel de urgencia:", str(data.get('nivel_urgencia', 0))],
-            ["Equipo corresponde a:", data.get('equipo_corresponde_a', 'N/A')]
+            ["Nivel de Urgencia:", data.get('urgencia', 'N/A')],
+            ["Logística a cargo:", data.get('logistica', 'N/A')],
+            ["Comentarios del caso:", data.get('comentarios_caso', 'N/A')],
         ])
+        
+        tabla_info = Table(info_general, colWidths=[2*inch, 4*inch])
+        tabla_info.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8f4f8')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+        ]))
+        elementos.append(tabla_info)
+        elementos.append(Spacer(1, 0.2*inch))
+        
+        # Subsección: El equipo corresponde a...
+        equipo_corresponde_a = data.get('equipo_corresponde_a', '')
+        elementos.append(Paragraph(f"<b>El equipo corresponde a: {equipo_corresponde_a}</b>", estilo_normal))
+        elementos.append(Spacer(1, 0.1*inch))
+        
+        info_equipo_corresponde = []
+        
+        if equipo_corresponde_a in ["Distribuidor", "Institución"]:
+            info_equipo_corresponde.extend([
+                ["Nombre de fantasía:", data.get('nombre_fantasia', 'N/A')],
+                ["Razón social:", data.get('razon_social', 'N/A')],
+                ["CUIT:", data.get('cuit', 'N/A')],
+                ["Nombre contacto:", data.get('contacto_nombre', 'N/A')],
+                ["Teléfono:", data.get('contacto_telefono', 'N/A')],
+                ["Comercial a cargo:", data.get('comercial_cargo', 'N/A')],
+                ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
+                ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+                ["Propio o Alquilado:", data.get('equipo_propiedad', 'N/A')],
+            ])
+            
+        elif equipo_corresponde_a == "Paciente/Particular":
+            info_equipo_corresponde.extend([
+                ["Nombre y Apellido:", data.get('nombre_apellido_paciente', 'N/A')],
+                ["Teléfono:", data.get('telefono_paciente', 'N/A')],
+                ["Dirección:", data.get('direccion_paciente', 'N/A')],
+                ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
+                ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+                ["Diagnóstico del Paciente:", data.get('diagnostico_paciente', 'N/A')],
+            ])
+        
+        if info_equipo_corresponde:
+            tabla_corresponde = Table(info_equipo_corresponde, colWidths=[2*inch, 4*inch])
+            tabla_corresponde.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#fff4e6')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+            ]))
+            elementos.append(tabla_corresponde)
     
-    # Agregar nombre según tipo de solicitante
-    if data.get('nombre_fantasia'):
-        if quien_completa == "Distribuidor":
-            info_basica.append(["Distribuidor:", data.get('nombre_fantasia', 'N/A')])
-        elif quien_completa == "Institución":
-            info_basica.append(["Hospital/Clínica:", data.get('nombre_fantasia', 'N/A')])
-        else:
-            info_basica.append(["Nombre/Razón Social:", data.get('nombre_fantasia', 'N/A')])
+    # ========== DISTRIBUIDOR ==========
+    elif quien_completa == "Distribuidor":
+        info_general.extend([
+            ["Nombre de fantasía:", data.get('nombre_fantasia', 'N/A')],
+            ["Razón social:", data.get('razon_social', 'N/A')],
+            ["CUIT:", data.get('cuit', 'N/A')],
+            ["Nombre contacto:", data.get('contacto_nombre', 'N/A')],
+            ["Teléfono:", data.get('contacto_telefono', 'N/A')],
+            ["Comercial a cargo:", data.get('comercial_cargo', 'N/A')],
+            ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
+            ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+            ["Propio o Alquilado:", data.get('equipo_propiedad', 'N/A')],
+        ])
+        
+        tabla_info = Table(info_general, colWidths=[2*inch, 4*inch])
+        tabla_info.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8f4f8')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+        ]))
+        elementos.append(tabla_info)
     
-    if data.get('nombre_apellido_paciente'):
-        info_basica.append(["Nombre y Apellido:", data.get('nombre_apellido_paciente', 'N/A')])
+    # ========== INSTITUCIÓN ==========
+    elif quien_completa == "Institución":
+        info_general.extend([
+            ["Nombre de fantasía:", data.get('nombre_fantasia', 'N/A')],
+            ["Razón social:", data.get('razon_social', 'N/A')],
+            ["CUIT:", data.get('cuit', 'N/A')],
+            ["Nombre contacto:", data.get('contacto_nombre', 'N/A')],
+            ["Teléfono:", data.get('contacto_telefono', 'N/A')],
+            ["Comercial a cargo:", data.get('comercial_cargo', 'N/A')],
+            ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
+            ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+            ["Propio o Alquilado:", data.get('equipo_propiedad', 'N/A')],
+        ])
+        
+        tabla_info = Table(info_general, colWidths=[2*inch, 4*inch])
+        tabla_info.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8f4f8')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+        ]))
+        elementos.append(tabla_info)
     
-    # Agregar teléfono si existe
-    if data.get('contacto_telefono'):
-        info_basica.append(["Teléfono:", data.get('contacto_telefono', 'N/A')])
-    if data.get('telefono_paciente'):
-        info_basica.append(["Teléfono:", data.get('telefono_paciente', 'N/A')])
+    # ========== PACIENTE/PARTICULAR ==========
+    elif quien_completa == "Paciente/Particular":
+        info_general.extend([
+            ["Nombre y Apellido:", data.get('nombre_apellido_paciente', 'N/A')],
+            ["Teléfono:", data.get('telefono_paciente', 'N/A')],
+            ["Dirección:", data.get('direccion_paciente', 'N/A')],
+            ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
+            ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+        ])
+        
+        tabla_info = Table(info_general, colWidths=[2*inch, 4*inch])
+        tabla_info.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8f4f8')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+        ]))
+        elementos.append(tabla_info)
     
-    info_basica.append(["Motivo:", data.get('motivo_solicitud', 'N/A')])
-    if data.get('contacto_tecnico'):
-        info_basica.append(["¿Quiere que lo contactemos?:", data.get('contacto_tecnico', 'N/A')])
-    
-    tabla_info = Table(info_basica, colWidths=[2*inch, 4*inch])
-    tabla_info.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8f4f8')),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('GRID', (0, 0), (-1, -1), 1, colors.grey)
-    ]))
-    elementos.append(tabla_info)
     elementos.append(Spacer(1, 0.3*inch))
     
-    # Detalles técnicos si aplica
-    if data.get('fallas_problemas') or data.get('detalle_fallo'):
+    # ====================================================================================
+    # SECCIÓN 2: DETALLES TÉCNICOS
+    # ====================================================================================
+    if data.get('fallas_problemas') or data.get('detalle_fallo') or data.get('diagnostico_paciente'):
         elementos.append(Paragraph("DETALLES TÉCNICOS", estilo_subtitulo))
         
+        # Fallas seleccionadas
         if data.get('fallas_problemas'):
-            elementos.append(Paragraph("<b>Fallas reportadas:</b>", estilo_normal))
+            elementos.append(Paragraph("<b>Fallas detectadas seleccionadas:</b>", estilo_normal))
             for falla in data.get('fallas_problemas', []):
                 elementos.append(Paragraph(f"• {falla}", estilo_normal))
             elementos.append(Spacer(1, 0.1*inch))
         
+        # Otros problemas o detalles adicionales
         if data.get('detalle_fallo'):
-            elementos.append(Paragraph("<b>Detalle del fallo:</b>", estilo_normal))
+            elementos.append(Paragraph("<b>Otros problemas o detalles adicionales:</b>", estilo_normal))
             elementos.append(Paragraph(data.get('detalle_fallo', ''), estilo_normal))
+            elementos.append(Spacer(1, 0.1*inch))
+        
+        # Diagnóstico del Paciente (si aplica)
+        if data.get('diagnostico_paciente'):
+            elementos.append(Paragraph("<b>Diagnóstico del Paciente:</b>", estilo_normal))
+            elementos.append(Paragraph(data.get('diagnostico_paciente', ''), estilo_normal))
         
         elementos.append(Spacer(1, 0.3*inch))
     
-    # Equipos
+    # ====================================================================================
+    # SECCIÓN 3: EQUIPOS REGISTRADOS
+    # ====================================================================================
     elementos.append(Paragraph("EQUIPOS REGISTRADOS", estilo_subtitulo))
     
     equipos_data = [["OST", "Tipo", "Marca", "Modelo", "N° Serie", "Garantía"]]
@@ -649,7 +766,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
                 "Sí" if equipo.get('en_garantia') else "No"
             ])
     
-    tabla_equipos = Table(equipos_data, colWidths=[0.3*inch, 1.5*inch, 1.2*inch, 1.2*inch, 1.3*inch, 0.6*inch])
+    tabla_equipos = Table(equipos_data, colWidths=[0.6*inch, 1.5*inch, 1.2*inch, 1.2*inch, 1.3*inch, 0.7*inch])
     tabla_equipos.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f77b4')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -663,12 +780,6 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')])
     ]))
     elementos.append(tabla_equipos)
-    
-    # Comentarios adicionales
-    if data.get('comentarios_caso'):
-        elementos.append(Spacer(1, 0.3*inch))
-        elementos.append(Paragraph("COMENTARIOS ADICIONALES", estilo_subtitulo))
-        elementos.append(Paragraph(data.get('comentarios_caso', ''), estilo_normal))
     
     doc.build(elementos)
     
@@ -854,40 +965,91 @@ def conectar_bd():
         st.error(f"Error conectando a la base de datos: {e}")
         return None
 
-def insertar_solicitud(data, pdf_url=None):  # 👈 AGREGAR pdf_url=None
+def insertar_solicitud(data, pdf_url=None):
     """Inserta la solicitud y los equipos en la base de datos"""
     conn = None
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()
         
-        # Extraer datos
+        # Extraer datos básicos
         email = data.get('email')
         quien_completa = data.get('quien_completa', '')
         area_solicitante = data.get('area_solicitante', '')
-        # ... resto de campos
         
-        # 👇 Agregar pdf_url a las columnas y valores
+        # Extraer datos específicos según tipo de solicitante
+        # Para Distribuidor e Institución
+        nombre_fantasia = data.get('nombre_fantasia', None)
+        razon_social = data.get('razon_social', None)
+        cuit = data.get('cuit', None)
+        contacto_nombre = data.get('contacto_nombre', None)
+        contacto_telefono = data.get('contacto_telefono', None)
+        comercial_syemed = data.get('comercial_syemed', None)
+        contacto_tecnico = data.get('contacto_tecnico', None)
+        
+        # Para Paciente/Particular
+        nombre_apellido_paciente = data.get('nombre_apellido_paciente', None)
+        telefono_paciente = data.get('telefono_paciente', None)
+        equipo_origen = data.get('equipo_origen', None)
+        
+        # Para Colaborador (ya existen en tu BD: solicitante, nivel_urgencia, equipo_corresponde_a)
+        solicitante = data.get('solicitante', None)
+        nivel_urgencia = data.get('nivel_urgencia', None)
+        equipo_corresponde_a = data.get('equipo_corresponde_a', None)
+        equipo_propiedad = data.get('equipo_propiedad', None)
+        
+        # Otros campos
+        motivo_solicitud = data.get('motivo_solicitud', None)
+        detalle_fallo = data.get('detalle_fallo', None)
+        comentarios_caso = data.get('comentarios_caso', None)
+        logistica_cargo = data.get('logistica_cargo', None)
+        
+        # Campo nuevo para futuro
+        categoria = data.get('categoria', None)
+        
+        # Insertar en la tabla solicitudes
         cursor.execute("""
             INSERT INTO solicitudes (
                 fecha_solicitud, email_solicitante, quien_completa,
                 area_solicitante, solicitante, nivel_urgencia,
-                logistica_cargo, equipo_corresponde_a, motivo_solicitud,
-                estado, pdf_url
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                logistica_cargo, equipo_corresponde_a, equipo_propiedad,
+                nombre_fantasia, razon_social, cuit, contacto_nombre, contacto_telefono,
+                comercial_syemed, contacto_tecnico,
+                nombre_apellido_paciente, telefono_paciente, equipo_origen,
+                motivo_solicitud, detalle_fallo, comentarios_caso,
+                categoria, estado, pdf_url
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                %s, %s, %s, %s, %s
+            )
             RETURNING id
         """, (
             datetime.now(),
             email,
             quien_completa,
             area_solicitante,
-            data.get('solicitante', ''),
-            data.get('urgencia', 'Media'),
-            data.get('logistica', ''),
-            data.get('equipo_descripcion', ''),
-            data.get('motivo', ''),
+            solicitante,
+            nivel_urgencia,
+            logistica_cargo,
+            equipo_corresponde_a,
+            equipo_propiedad,
+            nombre_fantasia,
+            razon_social,
+            cuit,
+            contacto_nombre,
+            contacto_telefono,
+            comercial_syemed,
+            contacto_tecnico,
+            nombre_apellido_paciente,
+            telefono_paciente,
+            equipo_origen,
+            motivo_solicitud,
+            detalle_fallo,
+            comentarios_caso,
+            categoria,
             'Pendiente',
-            pdf_url  
+            pdf_url
         ))
         
         solicitud_id = cursor.fetchone()[0]
