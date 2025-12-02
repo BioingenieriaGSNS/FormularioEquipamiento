@@ -1083,13 +1083,19 @@ def insertar_solicitud(data, pdf_url=None):
         solicitante = data.get('solicitante', None)
         
         # Convertir nivel_urgencia numérico a texto
-        nivel_urgencia_num = data.get('nivel_urgencia', 0)
-        if nivel_urgencia_num <= 1:
-            nivel_urgencia = f"Bajo ({nivel_urgencia_num})"
-        elif nivel_urgencia_num == 2:
-            nivel_urgencia = f"Medio ({nivel_urgencia_num})"
-        else:  # 3-5
-            nivel_urgencia = f"Alto ({nivel_urgencia_num})"
+        nivel_urgencia_num = data.get('nivel_urgencia')
+        if nivel_urgencia_num is not None:
+            # Convertir a entero si es necesario
+            nivel_urgencia_num = int(nivel_urgencia_num) if isinstance(nivel_urgencia_num, str) else nivel_urgencia_num
+            
+            if nivel_urgencia_num <= 1:
+                nivel_urgencia = f"Bajo ({nivel_urgencia_num})"
+            elif 1 < nivel_urgencia_num <= 3:
+                nivel_urgencia = f"Medio ({nivel_urgencia_num})"
+            else:  # 4-5
+                nivel_urgencia = f"Alto ({nivel_urgencia_num})"
+        else:
+            nivel_urgencia = None
         
         equipo_corresponde_a = data.get('equipo_corresponde_a', None)
         equipo_propiedad = data.get('equipo_propiedad', None)
