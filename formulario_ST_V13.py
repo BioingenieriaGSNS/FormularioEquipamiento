@@ -926,7 +926,9 @@ def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data, equipos_os
         if email_copia:
             msg['Cc'] = email_copia
         
-        msg['Subject'] = f"Solicitud de Ingreso, Caso: #{solicitud_id} - Syemed"
+        # Generar código de categoría para el asunto
+        codigo_categoria = generar_codigo_categoria(data)
+        msg['Subject'] = f"{codigo_categoria} Seguimiento Caso #{solicitud_id} - Syemed"
         
         # Determinar información del solicitante según tipo
         quien_completa = data.get('quien_completa', 'N/A')
@@ -1079,6 +1081,64 @@ def conectar_bd():
         st.error(f"Error conectando a la base de datos: {e}")
         return None
 
+def generar_codigo_categoria(data):
+    """
+    Genera el código de categoría según las reglas:
+    * ES: Equipo de Stock
+    * BD: Baja de Demo
+    * ST: Servicio Técnico
+    * PV: Servicio Post Venta
+    * BA: Baja de Alquiler
+    * CA: Cambio de Alquiler
+    * FC: Cambio por Falla de Funcionamiento crítica
+    * G: Garantía
+    * A: Alquiler
+    * R: Reparación
+    
+    Combina según:
+    - PV, ST, FC se combinan con R/G/R/A
+    - ES, BD, BA, CA van solos
+    
+    Ejemplo: R/A/ST (Reparación en Alquiler de Servicio Técnico)
+    """
+    motivo = data.get('motivo_solicitud', '')
+    equipo_propiedad = data.get('equipo_propiedad', '')
+    
+    # Determinar si hay equipos en garantía
+    equipos = data.get('equipos', [])
+    tiene_garantia = any(equipo.get('en_garantia', False) for equipo in equipos)
+    
+    # Mapeo de motivos a códigos
+    if motivo == "Servicio Técnico (reparaciones de equipos en general)":
+        codigo_motivo = "ST"
+    elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+        codigo_motivo = "PV"
+    elif motivo == "Cambio por falla de funcionamiento crítica":
+        codigo_motivo = "FC"
+    elif motivo == "Baja de Alquiler":
+        return "BA"  # Va solo
+    elif motivo == "Cambio de Alquiler":
+        return "CA"  # Va solo
+    elif motivo == "Equipo de Stock":
+        return "ES"  # Va solo
+    elif motivo == "Baja de Demo":
+        return "BD"  # Va solo
+    else:
+        return "N/A"
+    
+    # Para PV, ST, FC: combinar con R/G o R/A
+    if codigo_motivo in ["PV", "ST", "FC"]:
+        # Determinar tipo de servicio
+        if tiene_garantia:
+            return f"R/G/{codigo_motivo}"
+        elif equipo_propiedad == "Alquilado":
+            return f"R/A/{codigo_motivo}"
+        else:
+            # Reparación sin garantía ni alquiler (equipo propio)
+            return f"R/{codigo_motivo}"
+    
+    return "N/A"
+
 def insertar_solicitud(data, pdf_url=None):
     """Inserta la solicitud y los equipos en la base de datos"""
     conn = None
@@ -1132,8 +1192,8 @@ def insertar_solicitud(data, pdf_url=None):
         comentarios_caso = data.get('comentarios_caso', None)
         logistica_cargo = data.get('logistica_cargo', None)
         
-        # Campo nuevo para futuro
-        categoria = data.get('categoria', None)
+        # Generar código de categoría
+        categoria = generar_codigo_categoria(data)
         
         # IMPORTANTE: Calcular observacion_ingreso ANTES de insertar la solicitud
         # para poder usarlo también en detalle_fallo
@@ -1368,7 +1428,7 @@ def insertar_solicitud(data, pdf_url=None):
         if conn:
             conn.rollback()
         print(f"❌ Error en insertar_solicitud: {str(e)}")  # Debug
-        return False, str(e)
+        return False, str(e), []
     finally:
         if conn:
             conn.close()
