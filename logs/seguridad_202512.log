@@ -21,3 +21,4 @@
 {"timestamp": "2025-12-02T14:23:17.744034", "tipo": "SOLICITUD_EXITOSA", "user_id": "2010c4673d440aceb5b00045585b1505", "detalles": {"email": "sn@gmail.com", "tipo_solicitante": "Institución", "num_equipos": 1}}
 {"timestamp": "2025-12-02T14:54:31.361785", "tipo": "SOLICITUD_EXITOSA", "user_id": "eddfcbe33533e732ff12cf17da0061f6", "detalles": {"email": "sn@gmail.com", "tipo_solicitante": "Colaborador de Syemed", "num_equipos": 1}}
 {"timestamp": "2025-12-02T14:56:49.050983", "tipo": "SOLICITUD_EXITOSA", "user_id": "6dbe4161194dda5263371e6d837c51e2", "detalles": {"email": "pruebast@gmail.com", "tipo_solicitante": "Institución", "num_equipos": 1}}
+{"timestamp": "2025-12-02T15:15:47.051189", "tipo": "SOLICITUD_EXITOSA", "user_id": "f2490af2061bfdc037fa8f54c1d7de9f", "detalles": {"email": "bioingenieriags@syemed.com.ar", "tipo_solicitante": "Institución", "num_equipos": 1}}
