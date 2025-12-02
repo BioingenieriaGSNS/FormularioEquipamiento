@@ -1081,18 +1081,98 @@ def insertar_solicitud(data, pdf_url=None):
         
         # Para Colaborador (ya existen en tu BD: solicitante, nivel_urgencia, equipo_corresponde_a)
         solicitante = data.get('solicitante', None)
-        nivel_urgencia = data.get('nivel_urgencia', None)
+        
+        # Convertir nivel_urgencia numérico a texto
+        nivel_urgencia_num = data.get('nivel_urgencia', 0)
+        if nivel_urgencia_num <= 1:
+            nivel_urgencia = f"Bajo ({nivel_urgencia_num})"
+        elif nivel_urgencia_num == 2:
+            nivel_urgencia = f"Medio ({nivel_urgencia_num})"
+        else:  # 3-5
+            nivel_urgencia = f"Alto ({nivel_urgencia_num})"
+        
         equipo_corresponde_a = data.get('equipo_corresponde_a', None)
         equipo_propiedad = data.get('equipo_propiedad', None)
         
         # Otros campos
         motivo_solicitud = data.get('motivo_solicitud', None)
-        detalle_fallo = data.get('detalle_fallo', None)
         comentarios_caso = data.get('comentarios_caso', None)
         logistica_cargo = data.get('logistica_cargo', None)
         
         # Campo nuevo para futuro
         categoria = data.get('categoria', None)
+        
+        # IMPORTANTE: Calcular observacion_ingreso ANTES de insertar la solicitud
+        # para poder usarlo también en detalle_fallo
+        observacion_ingreso = None
+        
+        if motivo_solicitud == "Servicio Técnico (reparaciones de equipos en general)":
+            # Para ST: fallas + detalle + diagnóstico
+            partes = []
+            fallas = data.get('fallas_problemas', [])
+            if fallas:
+                partes.append(', '.join(fallas))
+            detalle = data.get('detalle_fallo', '')
+            if detalle:
+                partes.append(detalle)
+            diagnostico = data.get('diagnostico_paciente', '')
+            if diagnostico:
+                partes.append(f"Diagnóstico: {diagnostico}")
+            
+            if partes:
+                observacion_ingreso = ' | '.join(partes)
+        
+        elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+            # Para Post Venta: consultas + detalle + diagnóstico
+            partes = []
+            fallas = data.get('fallas_problemas', [])
+            if fallas:
+                partes.append(', '.join(fallas))
+            detalle = data.get('detalle_fallo', '')
+            if detalle:
+                partes.append(detalle)
+            diagnostico = data.get('diagnostico_paciente', '')
+            if diagnostico:
+                partes.append(f"Diagnóstico: {diagnostico}")
+            
+            if partes:
+                observacion_ingreso = ' | '.join(partes)
+        
+        elif motivo_solicitud == "Baja de Alquiler":
+            # Para Baja de Alquiler: motivo + observación + estado
+            partes = []
+            motivo_baja = data.get('motivo_baja', '')
+            if motivo_baja:
+                partes.append(f"Motivo: {motivo_baja}")
+            observacion_baja = data.get('observacion_baja', '')
+            if observacion_baja:
+                partes.append(observacion_baja)
+            estado_equipo = data.get('estado_equipo', '')
+            if estado_equipo:
+                partes.append(f"Estado: {estado_equipo}")
+            
+            if partes:
+                observacion_ingreso = ' | '.join(partes)
+        
+        elif motivo_solicitud == "Cambio de Alquiler":
+            # Para Cambio de Alquiler: motivo del cambio
+            observacion_ingreso = data.get('motivo_cambio_alquiler', '')
+        
+        elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
+            # Para Falla Crítica: descripción + diagnóstico
+            partes = []
+            detalle = data.get('detalle_fallo', '')
+            if detalle:
+                partes.append(detalle)
+            diagnostico = data.get('diagnostico_paciente', '')
+            if diagnostico:
+                partes.append(f"Diagnóstico: {diagnostico}")
+            
+            if partes:
+                observacion_ingreso = ' | '.join(partes)
+        
+        # Usar observacion_ingreso como detalle_fallo en la tabla solicitudes
+        detalle_fallo = observacion_ingreso
         
         # Insertar en la tabla solicitudes
         cursor.execute("""
@@ -1161,74 +1241,7 @@ def insertar_solicitud(data, pdf_url=None):
             elif equipo_corresponde_a == "Paciente/Particular":
                 cliente = data.get('nombre_apellido_paciente', 'Syemed')
         
-        # Determinar observación de ingreso según el motivo
-        observacion_ingreso = None
-        motivo_solicitud = data.get('motivo_solicitud', '')
-        
-        if motivo_solicitud == "Servicio Técnico (reparaciones de equipos en general)":
-            # Para ST: fallas + detalle + diagnóstico
-            partes = []
-            fallas = data.get('fallas_problemas', [])
-            if fallas:
-                partes.append(', '.join(fallas))
-            detalle = data.get('detalle_fallo', '')
-            if detalle:
-                partes.append(detalle)
-            diagnostico = data.get('diagnostico_paciente', '')
-            if diagnostico:
-                partes.append(f"Diagnóstico: {diagnostico}")
-            
-            if partes:
-                observacion_ingreso = ' | '.join(partes)
-        
-        elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-            # Para Post Venta: consultas + detalle + diagnóstico
-            partes = []
-            fallas = data.get('fallas_problemas', [])
-            if fallas:
-                partes.append(', '.join(fallas))
-            detalle = data.get('detalle_fallo', '')
-            if detalle:
-                partes.append(detalle)
-            diagnostico = data.get('diagnostico_paciente', '')
-            if diagnostico:
-                partes.append(f"Diagnóstico: {diagnostico}")
-            
-            if partes:
-                observacion_ingreso = ' | '.join(partes)
-        
-        elif motivo_solicitud == "Baja de Alquiler":
-            # Para Baja de Alquiler: motivo + observación + estado
-            partes = []
-            motivo_baja = data.get('motivo_baja', '')
-            if motivo_baja:
-                partes.append(f"Motivo: {motivo_baja}")
-            observacion_baja = data.get('observacion_baja', '')
-            if observacion_baja:
-                partes.append(observacion_baja)
-            estado_equipo = data.get('estado_equipo', '')
-            if estado_equipo:
-                partes.append(f"Estado: {estado_equipo}")
-            
-            if partes:
-                observacion_ingreso = ' | '.join(partes)
-        
-        elif motivo_solicitud == "Cambio de Alquiler":
-            # Para Cambio de Alquiler: motivo del cambio
-            observacion_ingreso = data.get('motivo_cambio_alquiler', '')
-        
-        elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
-            # Para Falla Crítica: descripción + diagnóstico
-            partes = []
-            detalle = data.get('detalle_fallo', '')
-            if detalle:
-                partes.append(detalle)
-            diagnostico = data.get('diagnostico_paciente', '')
-            if diagnostico:
-                partes.append(f"Diagnóstico: {diagnostico}")
-            
-            if partes:
-                observacion_ingreso = ' | '.join(partes)
+        # observacion_ingreso ya fue calculado arriba, no hace falta recalcularlo
         
         # Insertar equipos (CON fecha_ingreso, OST se genera automático)
         equipos_ids = []
