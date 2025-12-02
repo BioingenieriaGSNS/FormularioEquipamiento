@@ -1017,7 +1017,7 @@ Nos pondremos en contacto a la brevedad para coordinar el servicio.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HORARIO DE ATENCIÓN:
 Lunes a Viernes de 8 a 17hs
-Teléfono de emergencias: 11 2373-0278
+Teléfono de urgencias: 11 2373-0278
 
 Saludos cordiales,
 Equipo de Post Venta y Servicio Técnico
@@ -1885,7 +1885,7 @@ def main():
         </div>
         <p><strong>Contacto:</strong> Servicio Post Venta y ST</p>
         <p><strong>Atención:</strong> Lunes a Viernes de 8 a 17hs</p>
-        <p><strong>Teléfono para emergencias:</strong> 11 2373-0278</p>
+        <p><strong>Teléfono para urgencias:</strong> 11 2373-0278</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2678,6 +2678,7 @@ def mostrar_seccion_equipos(data, contexto="general"):
                         f"Fecha de Compra ({i+1})", 
                         value=None, 
                         max_value=date.today(),
+                        format="DD/MM/YYYY",
                         key=f"fecha_{contexto}_{i}_{form_key}",
                         help="No puede seleccionar fechas futuras"
                     )
@@ -2736,6 +2737,7 @@ def mostrar_seccion_equipos(data, contexto="general"):
                 "Fecha de Compra (común para todos)", 
                 value=None, 
                 max_value=date.today(),
+                format="DD/MM/YYYY",
                 key=f"fecha_comun_{contexto}_{form_key}",
                 help="No puede seleccionar fechas futuras"
             )
