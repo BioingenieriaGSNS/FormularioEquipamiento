@@ -575,11 +575,20 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     
     # ========== COLABORADOR DE SYEMED ==========
     if quien_completa == "Colaborador de Syemed":
+        # Mapear nivel de urgencia numérico a texto
+        nivel_urgencia_num = data.get('nivel_urgencia', 0)
+        if nivel_urgencia_num <= 1:
+            nivel_urgencia_texto = f"Bajo ({nivel_urgencia_num})"
+        elif 1 < nivel_urgencia_num <= 3:
+            nivel_urgencia_texto = f"Medio ({nivel_urgencia_num})"
+        else:  # 4-5
+            nivel_urgencia_texto = f"Alto ({nivel_urgencia_num})"
+        
         info_general.extend([
             ["Área solicitante:", data.get('area_solicitante', 'N/A')],
             ["Solicitante:", data.get('solicitante', 'N/A')],
-            ["Nivel de Urgencia:", data.get('urgencia', 'N/A')],
-            ["Logística a cargo:", data.get('logistica', 'N/A')],
+            ["Nivel de Urgencia:", nivel_urgencia_texto],
+            ["Logística a cargo:", data.get('logistica_cargo', 'N/A')],
             ["Comentarios del caso:", data.get('comentarios_caso', 'N/A')],
         ])
         
@@ -751,31 +760,109 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     # ====================================================================================
     elementos.append(Paragraph("EQUIPOS REGISTRADOS", estilo_subtitulo))
     
-    equipos_data = [["OST", "Tipo", "Marca", "Modelo", "N° Serie", "Garantía"]]
+    # Determinar observación/detalle según el motivo para todos los equipos
+    motivo_solicitud = data.get('motivo_solicitud', '')
+    detalle_observacion = ""
+    
+    if motivo_solicitud == "Servicio Técnico (reparaciones de equipos en general)":
+        # Para ST: fallas + detalle + diagnóstico
+        partes = []
+        fallas = data.get('fallas_problemas', [])
+        if fallas:
+            partes.append(', '.join(fallas))
+        detalle = data.get('detalle_fallo', '')
+        if detalle:
+            partes.append(detalle)
+        diagnostico = data.get('diagnostico_paciente', '')
+        if diagnostico:
+            partes.append(f"Diagnóstico: {diagnostico}")
+        
+        if partes:
+            detalle_observacion = ' | '.join(partes)
+    
+    elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+        # Para Post Venta: consultas + detalle + diagnóstico
+        partes = []
+        fallas = data.get('fallas_problemas', [])
+        if fallas:
+            partes.append(', '.join(fallas))
+        detalle = data.get('detalle_fallo', '')
+        if detalle:
+            partes.append(detalle)
+        diagnostico = data.get('diagnostico_paciente', '')
+        if diagnostico:
+            partes.append(f"Diagnóstico: {diagnostico}")
+        
+        if partes:
+            detalle_observacion = ' | '.join(partes)
+    
+    elif motivo_solicitud == "Baja de Alquiler":
+        # Para Baja de Alquiler: motivo + observación + estado
+        partes = []
+        motivo_baja = data.get('motivo_baja', '')
+        if motivo_baja:
+            partes.append(f"Motivo: {motivo_baja}")
+        observacion_baja = data.get('observacion_baja', '')
+        if observacion_baja:
+            partes.append(observacion_baja)
+        estado_equipo = data.get('estado_equipo', '')
+        if estado_equipo:
+            partes.append(f"Estado: {estado_equipo}")
+        
+        if partes:
+            detalle_observacion = ' | '.join(partes)
+    
+    elif motivo_solicitud == "Cambio de Alquiler":
+        # Para Cambio de Alquiler: motivo del cambio
+        detalle_observacion = data.get('motivo_cambio_alquiler', '')
+    
+    elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
+        # Para Falla Crítica: descripción + diagnóstico
+        partes = []
+        detalle = data.get('detalle_fallo', '')
+        if detalle:
+            partes.append(detalle)
+        diagnostico = data.get('diagnostico_paciente', '')
+        if diagnostico:
+            partes.append(f"Diagnóstico: {diagnostico}")
+        
+        if partes:
+            detalle_observacion = ' | '.join(partes)
+    
+    equipos_data = [["OST", "Tipo", "Marca", "Modelo", "N° Serie", "Garantía", "Detalle fallo/\nObservación ingreso"]]
     
     for i, equipo in enumerate(data.get('equipos', []), 1):
         if equipo.get('tipo_equipo') and equipo['tipo_equipo'] != "Seleccionar tipo...":
             # Obtener el OST correspondiente a este equipo
             ost_equipo = equipos_osts[i-1] if equipos_osts and i-1 < len(equipos_osts) else "N/A"
+            
+            # Truncar el detalle si es muy largo (máximo 100 caracteres)
+            detalle_truncado = detalle_observacion[:100] + "..." if len(detalle_observacion) > 100 else detalle_observacion
+            
             equipos_data.append([
                 f"#{ost_equipo}",
                 equipo.get('tipo_equipo', 'N/A'),
                 equipo.get('marca', 'N/A'),
                 equipo.get('modelo', 'N/A'),
                 equipo.get('numero_serie', 'N/A'),
-                "Sí" if equipo.get('en_garantia') else "No"
+                "Sí" if equipo.get('en_garantia') else "No",
+                detalle_truncado or "N/A"
             ])
     
-    tabla_equipos = Table(equipos_data, colWidths=[0.6*inch, 1.5*inch, 1.2*inch, 1.2*inch, 1.3*inch, 0.7*inch])
+    tabla_equipos = Table(equipos_data, colWidths=[0.5*inch, 1.2*inch, 0.9*inch, 0.9*inch, 1*inch, 0.6*inch, 1.4*inch])
     tabla_equipos.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f77b4')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 0), (5, -1), 'CENTER'),
+        ('ALIGN', (6, 0), (6, -1), 'LEFT'),  # Detalle fallo alineado a la izquierda
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
         ('GRID', (0, 0), (-1, -1), 1, colors.grey),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')])
     ]))
@@ -1078,20 +1165,67 @@ def insertar_solicitud(data, pdf_url=None):
         observacion_ingreso = None
         motivo_solicitud = data.get('motivo_solicitud', '')
         
-        if motivo_solicitud == "Cambio de Alquiler":
-            # Para cambio de alquiler, usar el motivo específico
-            observacion_ingreso = data.get('motivo_cambio_alquiler', '')
-            
-        elif motivo_solicitud not in ["Equipo de Stock", "Baja de Alquiler"]:
-            # Para otros motivos, combinar fallas y detalles
-            fallas = data.get('fallas_problemas', [])
-            detalle = data.get('detalle_fallo', '')
-            
+        if motivo_solicitud == "Servicio Técnico (reparaciones de equipos en general)":
+            # Para ST: fallas + detalle + diagnóstico
             partes = []
+            fallas = data.get('fallas_problemas', [])
             if fallas:
                 partes.append(', '.join(fallas))
+            detalle = data.get('detalle_fallo', '')
             if detalle:
                 partes.append(detalle)
+            diagnostico = data.get('diagnostico_paciente', '')
+            if diagnostico:
+                partes.append(f"Diagnóstico: {diagnostico}")
+            
+            if partes:
+                observacion_ingreso = ' | '.join(partes)
+        
+        elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+            # Para Post Venta: consultas + detalle + diagnóstico
+            partes = []
+            fallas = data.get('fallas_problemas', [])
+            if fallas:
+                partes.append(', '.join(fallas))
+            detalle = data.get('detalle_fallo', '')
+            if detalle:
+                partes.append(detalle)
+            diagnostico = data.get('diagnostico_paciente', '')
+            if diagnostico:
+                partes.append(f"Diagnóstico: {diagnostico}")
+            
+            if partes:
+                observacion_ingreso = ' | '.join(partes)
+        
+        elif motivo_solicitud == "Baja de Alquiler":
+            # Para Baja de Alquiler: motivo + observación + estado
+            partes = []
+            motivo_baja = data.get('motivo_baja', '')
+            if motivo_baja:
+                partes.append(f"Motivo: {motivo_baja}")
+            observacion_baja = data.get('observacion_baja', '')
+            if observacion_baja:
+                partes.append(observacion_baja)
+            estado_equipo = data.get('estado_equipo', '')
+            if estado_equipo:
+                partes.append(f"Estado: {estado_equipo}")
+            
+            if partes:
+                observacion_ingreso = ' | '.join(partes)
+        
+        elif motivo_solicitud == "Cambio de Alquiler":
+            # Para Cambio de Alquiler: motivo del cambio
+            observacion_ingreso = data.get('motivo_cambio_alquiler', '')
+        
+        elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
+            # Para Falla Crítica: descripción + diagnóstico
+            partes = []
+            detalle = data.get('detalle_fallo', '')
+            if detalle:
+                partes.append(detalle)
+            diagnostico = data.get('diagnostico_paciente', '')
+            if diagnostico:
+                partes.append(f"Diagnóstico: {diagnostico}")
             
             if partes:
                 observacion_ingreso = ' | '.join(partes)

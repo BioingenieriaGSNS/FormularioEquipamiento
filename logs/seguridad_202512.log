@@ -5,3 +5,5 @@
 {"timestamp": "2025-12-01T15:33:17.875602", "tipo": "SOLICITUD_EXITOSA", "user_id": "dc30c48b20c6f4240bc6be1f1038aa7b", "detalles": {"email": "g@gmail.com", "tipo_solicitante": "Institución", "num_equipos": 1}}
 {"timestamp": "2025-12-01T15:46:14.591065", "tipo": "SOLICITUD_EXITOSA", "user_id": "9a37212b0ffe09903d156766d6220ace", "detalles": {"email": "hola@algo.com", "tipo_solicitante": "Distribuidor", "num_equipos": 1}}
 {"timestamp": "2025-12-01T15:57:03.117121", "tipo": "SOLICITUD_EXITOSA", "user_id": "4a6201d65dd8457a6b3c09516815262a", "detalles": {"email": "hola@algo.com", "tipo_solicitante": "Distribuidor", "num_equipos": 1}}
+{"timestamp": "2025-12-02T09:00:04.674487", "tipo": "SOLICITUD_EXITOSA", "user_id": "e1182a8e769b6018774d1e299391f3f2", "detalles": {"email": "g@gmail.com", "tipo_solicitante": "Colaborador de Syemed", "num_equipos": 1}}
+{"timestamp": "2025-12-02T10:14:20.182109", "tipo": "SOLICITUD_EXITOSA", "user_id": "cafb07ee3f507a0163b5e3d237d62f25", "detalles": {"email": "hola@algo.com", "tipo_solicitante": "Colaborador de Syemed", "num_equipos": 1}}
