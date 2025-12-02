@@ -732,40 +732,15 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     # ====================================================================================
     # SECCIÓN 2: DETALLES TÉCNICOS
     # ====================================================================================
-    if data.get('fallas_problemas') or data.get('detalle_fallo') or data.get('diagnostico_paciente'):
-        elementos.append(Paragraph("DETALLES TÉCNICOS", estilo_subtitulo))
-        
-        # Fallas seleccionadas
-        if data.get('fallas_problemas'):
-            elementos.append(Paragraph("<b>Fallas detectadas seleccionadas:</b>", estilo_normal))
-            for falla in data.get('fallas_problemas', []):
-                elementos.append(Paragraph(f"• {falla}", estilo_normal))
-            elementos.append(Spacer(1, 0.1*inch))
-        
-        # Otros problemas o detalles adicionales
-        if data.get('detalle_fallo'):
-            elementos.append(Paragraph("<b>Otros problemas o detalles adicionales:</b>", estilo_normal))
-            elementos.append(Paragraph(data.get('detalle_fallo', ''), estilo_normal))
-            elementos.append(Spacer(1, 0.1*inch))
-        
-        # Diagnóstico del Paciente (si aplica)
-        if data.get('diagnostico_paciente'):
-            elementos.append(Paragraph("<b>Diagnóstico del Paciente:</b>", estilo_normal))
-            elementos.append(Paragraph(data.get('diagnostico_paciente', ''), estilo_normal))
-        
-        elementos.append(Spacer(1, 0.3*inch))
-    
-    # ====================================================================================
-    # SECCIÓN 3: EQUIPOS REGISTRADOS
-    # ====================================================================================
-    elementos.append(Paragraph("EQUIPOS REGISTRADOS", estilo_subtitulo))
-    
-    # Determinar observación/detalle según el motivo para todos los equipos
     motivo_solicitud = data.get('motivo_solicitud', '')
+    
+    # Determinar si hay información técnica que mostrar
+    tiene_info_tecnica = False
     detalle_observacion = ""
     
     if motivo_solicitud == "Servicio Técnico (reparaciones de equipos en general)":
         # Para ST: fallas + detalle + diagnóstico
+        tiene_info_tecnica = data.get('fallas_problemas') or data.get('detalle_fallo') or data.get('diagnostico_paciente')
         partes = []
         fallas = data.get('fallas_problemas', [])
         if fallas:
@@ -776,12 +751,12 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         diagnostico = data.get('diagnostico_paciente', '')
         if diagnostico:
             partes.append(f"Diagnóstico: {diagnostico}")
-        
         if partes:
             detalle_observacion = ' | '.join(partes)
     
     elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
         # Para Post Venta: consultas + detalle + diagnóstico
+        tiene_info_tecnica = data.get('fallas_problemas') or data.get('detalle_fallo') or data.get('diagnostico_paciente')
         partes = []
         fallas = data.get('fallas_problemas', [])
         if fallas:
@@ -792,12 +767,12 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         diagnostico = data.get('diagnostico_paciente', '')
         if diagnostico:
             partes.append(f"Diagnóstico: {diagnostico}")
-        
         if partes:
             detalle_observacion = ' | '.join(partes)
     
     elif motivo_solicitud == "Baja de Alquiler":
         # Para Baja de Alquiler: motivo + observación + estado
+        tiene_info_tecnica = data.get('motivo_baja') or data.get('observacion_baja') or data.get('estado_equipo')
         partes = []
         motivo_baja = data.get('motivo_baja', '')
         if motivo_baja:
@@ -808,16 +783,17 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         estado_equipo = data.get('estado_equipo', '')
         if estado_equipo:
             partes.append(f"Estado: {estado_equipo}")
-        
         if partes:
             detalle_observacion = ' | '.join(partes)
     
     elif motivo_solicitud == "Cambio de Alquiler":
         # Para Cambio de Alquiler: motivo del cambio
+        tiene_info_tecnica = data.get('motivo_cambio_alquiler')
         detalle_observacion = data.get('motivo_cambio_alquiler', '')
     
     elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
         # Para Falla Crítica: descripción + diagnóstico
+        tiene_info_tecnica = data.get('detalle_fallo') or data.get('diagnostico_paciente')
         partes = []
         detalle = data.get('detalle_fallo', '')
         if detalle:
@@ -825,19 +801,72 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         diagnostico = data.get('diagnostico_paciente', '')
         if diagnostico:
             partes.append(f"Diagnóstico: {diagnostico}")
-        
         if partes:
             detalle_observacion = ' | '.join(partes)
     
-    equipos_data = [["OST", "Tipo", "Marca", "Modelo", "N° Serie", "Garantía", "Detalle fallo/\nObservación ingreso"]]
+    # Mostrar sección DETALLES TÉCNICOS si hay información
+    if tiene_info_tecnica:
+        elementos.append(Paragraph("DETALLES TÉCNICOS", estilo_subtitulo))
+        
+        # Para ST y Post Venta: mostrar fallas seleccionadas
+        if motivo_solicitud in ["Servicio Técnico (reparaciones de equipos en general)", 
+                                "Servicio Post Venta (para alguno de nuestros productos adquiridos)"]:
+            if data.get('fallas_problemas'):
+                elementos.append(Paragraph("<b>Fallas detectadas seleccionadas:</b>", estilo_normal))
+                for falla in data.get('fallas_problemas', []):
+                    elementos.append(Paragraph(f"• {falla}", estilo_normal))
+                elementos.append(Spacer(1, 0.1*inch))
+            
+            if data.get('detalle_fallo'):
+                elementos.append(Paragraph("<b>Otros problemas o detalles adicionales:</b>", estilo_normal))
+                elementos.append(Paragraph(data.get('detalle_fallo', ''), estilo_normal))
+                elementos.append(Spacer(1, 0.1*inch))
+            
+            if data.get('diagnostico_paciente'):
+                elementos.append(Paragraph("<b>Diagnóstico del Paciente:</b>", estilo_normal))
+                elementos.append(Paragraph(data.get('diagnostico_paciente', ''), estilo_normal))
+        
+        # Para Baja de Alquiler
+        elif motivo_solicitud == "Baja de Alquiler":
+            if data.get('motivo_baja'):
+                elementos.append(Paragraph(f"<b>Motivo de baja:</b> {data.get('motivo_baja', '')}", estilo_normal))
+                elementos.append(Spacer(1, 0.05*inch))
+            if data.get('observacion_baja'):
+                elementos.append(Paragraph("<b>Observación:</b>", estilo_normal))
+                elementos.append(Paragraph(data.get('observacion_baja', ''), estilo_normal))
+                elementos.append(Spacer(1, 0.05*inch))
+            if data.get('estado_equipo'):
+                elementos.append(Paragraph(f"<b>Estado del equipo:</b> {data.get('estado_equipo', '')}", estilo_normal))
+        
+        # Para Cambio de Alquiler
+        elif motivo_solicitud == "Cambio de Alquiler":
+            if data.get('motivo_cambio_alquiler'):
+                elementos.append(Paragraph("<b>Motivo del cambio:</b>", estilo_normal))
+                elementos.append(Paragraph(data.get('motivo_cambio_alquiler', ''), estilo_normal))
+        
+        # Para Falla Crítica
+        elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
+            if data.get('detalle_fallo'):
+                elementos.append(Paragraph("<b>Descripción de la falla crítica:</b>", estilo_normal))
+                elementos.append(Paragraph(data.get('detalle_fallo', ''), estilo_normal))
+                elementos.append(Spacer(1, 0.1*inch))
+            if data.get('diagnostico_paciente'):
+                elementos.append(Paragraph("<b>Diagnóstico del Paciente:</b>", estilo_normal))
+                elementos.append(Paragraph(data.get('diagnostico_paciente', ''), estilo_normal))
+        
+        elementos.append(Spacer(1, 0.3*inch))
+    
+    # ====================================================================================
+    # SECCIÓN 3: EQUIPOS REGISTRADOS
+    # ====================================================================================
+    elementos.append(Paragraph("EQUIPOS REGISTRADOS", estilo_subtitulo))
+    
+    equipos_data = [["OST", "Tipo", "Marca", "Modelo", "N° Serie", "Garantía"]]
     
     for i, equipo in enumerate(data.get('equipos', []), 1):
         if equipo.get('tipo_equipo') and equipo['tipo_equipo'] != "Seleccionar tipo...":
             # Obtener el OST correspondiente a este equipo
             ost_equipo = equipos_osts[i-1] if equipos_osts and i-1 < len(equipos_osts) else "N/A"
-            
-            # Truncar el detalle si es muy largo (máximo 100 caracteres)
-            detalle_truncado = detalle_observacion[:100] + "..." if len(detalle_observacion) > 100 else detalle_observacion
             
             equipos_data.append([
                 f"#{ost_equipo}",
@@ -845,24 +874,22 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
                 equipo.get('marca', 'N/A'),
                 equipo.get('modelo', 'N/A'),
                 equipo.get('numero_serie', 'N/A'),
-                "Sí" if equipo.get('en_garantia') else "No",
-                detalle_truncado or "N/A"
+                "Sí" if equipo.get('en_garantia') else "No"
             ])
     
-    tabla_equipos = Table(equipos_data, colWidths=[0.5*inch, 1.2*inch, 0.9*inch, 0.9*inch, 1*inch, 0.6*inch, 1.4*inch])
+    tabla_equipos = Table(equipos_data, colWidths=[0.6*inch, 1.5*inch, 1.2*inch, 1.2*inch, 1.2*inch, 0.7*inch])
     tabla_equipos.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f77b4')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (5, -1), 'CENTER'),
-        ('ALIGN', (6, 0), (6, -1), 'LEFT'),  # Detalle fallo alineado a la izquierda
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('FONTSIZE', (0, 1), (-1, -1), 7),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 3),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ('GRID', (0, 0), (-1, -1), 1, colors.grey),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')])
     ]))
@@ -2474,7 +2501,6 @@ def mostrar_seccion_paciente(data, es_directo=False):
         'quien_entrego': quien_entrego,
         'motivo_solicitud': motivo_solicitud
     })
-
 def mostrar_seccion_baja_alquiler(data):
     """Muestra la sección condicional para motivo de baja en alquileres"""
     st.markdown('<div class="section-header"><h2>Motivo de Baja de Alquiler</h2></div>', unsafe_allow_html=True)
@@ -2529,7 +2555,7 @@ def mostrar_seccion_baja_alquiler(data):
                 placeholder="Describa detalladamente la falla presentada...",
                 key=f"tipo_falla_no_fin_{form_key}"
             )
-            motivo_baja = "Sin fin contrato, pero falla en el equipo"
+            motivo_baja = "Falla en el equipo"
             observacion_baja = tipo_falla if tipo_falla else ""
             estado_equipo = "Con falla"
         elif equipo_falla == "No":
@@ -2552,7 +2578,7 @@ def mostrar_seccion_baja_alquiler(data):
         'observacion_baja': observacion_baja,
         'estado_equipo': estado_equipo
     })
-
+    
 def mostrar_seccion_equipos(data, contexto="general"):
     st.markdown('<div class="section-header"><h2>Datos de los Equipos</h2></div>', unsafe_allow_html=True)
     

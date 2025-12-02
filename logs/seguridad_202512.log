@@ -18,3 +18,6 @@
 {"timestamp": "2025-12-02T12:18:01.586487", "tipo": "SOLICITUD_EXITOSA", "user_id": "4deeae68048a452948511a719e0fc7c0", "detalles": {"email": "sn@gmail.com", "tipo_solicitante": "Distribuidor", "num_equipos": 1}}
 {"timestamp": "2025-12-02T12:20:58.185606", "tipo": "SOLICITUD_EXITOSA", "user_id": "0a6d0764d028bcc2f35a5338ef41fd9c", "detalles": {"email": "sn@gmail.com", "tipo_solicitante": "Distribuidor", "num_equipos": 1}}
 {"timestamp": "2025-12-02T12:35:31.065320", "tipo": "SOLICITUD_EXITOSA", "user_id": "b35a25aa9be61e034172697903700709", "detalles": {"email": "sn@gmail.com", "tipo_solicitante": "Institución", "num_equipos": 1}}
+{"timestamp": "2025-12-02T14:23:17.744034", "tipo": "SOLICITUD_EXITOSA", "user_id": "2010c4673d440aceb5b00045585b1505", "detalles": {"email": "sn@gmail.com", "tipo_solicitante": "Institución", "num_equipos": 1}}
+{"timestamp": "2025-12-02T14:54:31.361785", "tipo": "SOLICITUD_EXITOSA", "user_id": "eddfcbe33533e732ff12cf17da0061f6", "detalles": {"email": "sn@gmail.com", "tipo_solicitante": "Colaborador de Syemed", "num_equipos": 1}}
+{"timestamp": "2025-12-02T14:56:49.050983", "tipo": "SOLICITUD_EXITOSA", "user_id": "6dbe4161194dda5263371e6d837c51e2", "detalles": {"email": "pruebast@gmail.com", "tipo_solicitante": "Institución", "num_equipos": 1}}
