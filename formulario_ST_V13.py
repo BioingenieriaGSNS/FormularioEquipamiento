@@ -1084,7 +1084,7 @@ def conectar_bd():
 def generar_codigo_categoria(data):
     """
     Genera el código de categoría según las reglas:
-    * ES: Equipo de Stock
+    * S: Equipo de Stock
     * BD: Baja de Demo
     * ST: Servicio Técnico
     * PV: Servicio Post Venta
@@ -1097,7 +1097,7 @@ def generar_codigo_categoria(data):
     
     Combina según:
     - PV, ST, FC se combinan con R/G/R/A
-    - ES, BD, BA, CA van solos
+    - S, BD, BA, CA van solos
     
     Ejemplo: R/A/ST (Reparación en Alquiler de Servicio Técnico)
     """
@@ -1120,7 +1120,7 @@ def generar_codigo_categoria(data):
     elif motivo == "Cambio de Alquiler":
         return "CA"  # Va solo
     elif motivo == "Equipo de Stock":
-        return "ES"  # Va solo
+        return "S"  # Va solo
     elif motivo == "Baja de Demo":
         return "BD"  # Va solo
     else:
