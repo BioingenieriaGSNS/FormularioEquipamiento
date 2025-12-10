@@ -1,6 +1,31 @@
+# Environment variables
 .env
+_env
+
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
-credencialesPrueba.json
+Thumbs.db
+
+# Logs
+*.log
+EOF
