@@ -340,6 +340,17 @@ FALLAS_PROBLEMAS = [
     "No se como funcionan los descartables del equipo"
 ]
 
+# Mapeo de texto de Post Venta a Asistencia Técnica (para mostrar al usuario)
+TEXTO_POST_VENTA_INTERNO = "Servicio Post Venta (para alguno de nuestros productos adquiridos)"
+TEXTO_ASISTENCIA_TECNICA_DISPLAY = "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)"
+
+# Función para convertir texto display a valor interno
+def normalizar_motivo_solicitud(motivo_display):
+    """Convierte el texto mostrado al usuario al valor interno de BD"""
+    if motivo_display == TEXTO_ASISTENCIA_TECNICA_DISPLAY:
+        return TEXTO_POST_VENTA_INTERNO
+    return motivo_display
+
 def validar_email_formato(email):
     """
     Valida el formato del email usando email-validator
@@ -532,7 +543,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         topMargin=72, 
         bottomMargin=18,
         title=f"Solicitud ST - OST #{ost_principal}",  
-        author="Syemed - Post Venta y ST",     
+        author="Syemed - Asistencia Técnica y ST",     
         subject=f"Solicitud de Servicio Técnico - OST #{ost_principal}"  
     )
     
@@ -755,7 +766,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             detalle_observacion = ' | '.join(partes)
     
     elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-        # Para Post Venta: consultas + detalle + diagnóstico
+        # Para Asistencia Técnica: consultas + detalle + diagnóstico
         tiene_info_tecnica = data.get('fallas_problemas') or data.get('detalle_fallo') or data.get('diagnostico_paciente')
         partes = []
         fallas = data.get('fallas_problemas', [])
@@ -808,7 +819,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     if tiene_info_tecnica:
         elementos.append(Paragraph("DETALLES TÉCNICOS", estilo_subtitulo))
         
-        # Para ST y Post Venta: mostrar fallas seleccionadas
+        # Para ST y Asistencia Técnica: mostrar fallas seleccionadas
         if motivo_solicitud in ["Servicio Técnico (reparaciones de equipos en general)", 
                                 "Servicio Post Venta (para alguno de nuestros productos adquiridos)"]:
             if data.get('fallas_problemas'):
@@ -919,7 +930,7 @@ def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data, equipos_os
     try:
         # Crear mensaje
         msg = MIMEMultipart()
-        msg['From'] = f"Post Venta y Servicio Tecnico Syemed <{sender_email}>"
+        msg['From'] = f"Asistencia Técnica y Servicio Técnico Syemed <{sender_email}>"
         msg['To'] = destinatario
         
         # Agregar copia si está configurada
@@ -1020,7 +1031,7 @@ Lunes a Viernes de 8 a 17hs
 Teléfono de urgencias: 11 2373-0278
 
 Saludos cordiales,
-Equipo de Post Venta y Servicio Técnico
+Equipo de Asistencia Técnica y Servicio Técnico
 Syemed
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1087,7 +1098,7 @@ def generar_codigo_categoria(data):
     * S: Equipo de Stock
     * BD: Baja de Demo
     * ST: Servicio Técnico
-    * PV: Servicio Post Venta
+    * PV: Servicio de Asistencia Técnica (Post Venta)
     * BA: Baja de Alquiler
     * CA: Cambio de Alquiler
     * FC: Cambio por Falla de Funcionamiento crítica
@@ -1216,7 +1227,7 @@ def insertar_solicitud(data, pdf_url=None):
                 observacion_ingreso = ' | '.join(partes)
         
         elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-            # Para Post Venta: consultas + detalle + diagnóstico
+            # Para Asistencia Técnica: consultas + detalle + diagnóstico
             partes = []
             fallas = data.get('fallas_problemas', [])
             if fallas:
@@ -1878,12 +1889,12 @@ def main():
     <div class="main-header">
         <div class="header-content">
             <div>
-                <h1 class="titulo-completo">Post Venta Y ST: Solicitud de Servicio</h1>
+                <h1 class="titulo-completo">Post Venta y ST: Solicitud de Servicio</h1>
                 <h1 class="titulo-corto">Solicitud de Servicio</h1>
             </div>
                 <img src="https://res.cloudinary.com/dfxjqvan0/image/upload/v1762453830/LOGO_SYEMED_MUX-removebg_df3gwy.png" alt="Logo Syemed" />
         </div>
-        <p><strong>Contacto:</strong> Servicio Post Venta y ST</p>
+        <p><strong>Contacto:</strong> Servicio de Post Venta y ST</p>
         <p><strong>Atención:</strong> Lunes a Viernes de 8 a 17hs</p>
         <p><strong>Teléfono para urgencias:</strong> 11 2373-0278</p>
     </div>
@@ -2080,11 +2091,11 @@ def main():
                     height=100
                 )
             
-            # POST VENTA
+            # ASISTENCIA TÉCNICA
             elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-                st.markdown("#### Consultas de Post Venta")
+                st.markdown("#### Consultas de Asistencia Técnica")
                 st.info("""
-                **¿Cuándo solicitar Post Venta?**
+                **¿Cuándo solicitar Asistencia Técnica?**
                 - Dudas sobre el uso del equipo o configuración inicial.
                 - Solicitud de capacitación
                 - Consulta sobre garantía
@@ -2309,11 +2320,13 @@ def mostrar_seccion_distribuidor(data, es_directo=False):
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
             ["", 
             "Servicio Técnico (reparaciones de equipos en general)", 
-            "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+            "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", 
             "Baja de Alquiler", 
             "Cambio de Alquiler",
             "Cambio por falla de funcionamiento crítica"], 
             key=f"d_motivo_{form_key}")
+        # Normalizar el valor para compatibilidad con BD
+        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
 
         # Campo de motivos para Cambio de Alquiler
         motivo_cambio_alquiler = ""
@@ -2371,11 +2384,13 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
         ["", 
         "Servicio Técnico (reparaciones de equipos en general)", 
-        "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+        "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", 
         "Baja de Alquiler", 
         "Cambio de Alquiler",
         "Cambio por falla de funcionamiento crítica"], 
         key=f"d_motivo_{form_key}")
+        # Normalizar el valor para compatibilidad con BD
+        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
 
     # Campo de motivos para Cambio de Alquiler
     motivo_cambio_alquiler = ""
@@ -2433,11 +2448,13 @@ def mostrar_seccion_institucion(data, es_directo=False):
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
         ["", 
         "Servicio Técnico (reparaciones de equipos en general)", 
-        "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+        "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", 
         "Baja de Alquiler", 
         "Cambio de Alquiler",
         "Cambio por falla de funcionamiento crítica"], 
         key=f"d_motivo_{form_key}")
+        # Normalizar el valor para compatibilidad con BD
+        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
 
     # Campo de motivos para Cambio de Alquiler
     motivo_cambio_alquiler = ""
@@ -2495,11 +2512,13 @@ def mostrar_seccion_institucionB(data, es_directo=False):
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
         ["", 
         "Servicio Técnico (reparaciones de equipos en general)", 
-        "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+        "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", 
         "Baja de Alquiler", 
         "Cambio de Alquiler",
         "Cambio por falla de funcionamiento crítica"], 
         key=f"d_motivo_{form_key}")
+        # Normalizar el valor para compatibilidad con BD
+        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
 
     # Campo de motivos para Cambio de Alquiler
     motivo_cambio_alquiler = ""
@@ -2552,7 +2571,9 @@ def mostrar_seccion_paciente(data, es_directo=False):
         if equipo_origen == "Se lo entregaron":
             quien_entrego = st.text_area("¿Quién lo entregó?", placeholder="Obra Social, Distribuidor, Ortopedia, Plataformas Digitales, etc.", key=f"p_quienentrego_{form_key}" )
         
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio Post Venta (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"])
+        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"p_motivosolicitud_{form_key}")
+        # Normalizar el valor para compatibilidad con BD
+        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
     
     data.update({
         'nombre_apellido_paciente': nombre_apellido,
@@ -2665,11 +2686,23 @@ def mostrar_seccion_equipos(data, contexto="general"):
             with col1:
                 tipo_equipo = st.selectbox(f"Tipo de Equipo ({i+1}) *", TIPOS_EQUIPO, key=f"tipo_{contexto}_{i}_{form_key}")
                 marca_equipo = st.selectbox(f"Marca de Equipo ({i+1}) *", MARCAS_EQUIPO, key=f"marca_{contexto}_{i}_{form_key}")
-                numero_serie = st.text_input(f"Número de Serie ({i+1}) *", key=f"serie_{contexto}_{i}_{form_key}")
-            
-            with col2:
                 modelo_equipo = st.selectbox(f"Modelo de Equipo ({i+1}) *", MODELOS_EQUIPO, key=f"modelo_{contexto}_{i}_{form_key}")
-                en_garantia = st.selectbox(f"¿Está en Garantía? ({i+1}) *", ["", "Sí", "No"], key=f"garantia_{contexto}_{i}_{form_key}")
+            with col2:
+                numero_serie = st.text_input(f"Número de Serie ({i+1}) *", key=f"serie_{contexto}_{i}_{form_key}")
+                
+                # Verificar si el equipo es alquilado para deshabilitar garantía
+                equipo_propiedad = data.get('equipo_propiedad', '')
+                if equipo_propiedad == "Alquilado":
+                    st.selectbox(
+                        f"¿Está en Garantía? ({i+1}) *", 
+                        ["No"], 
+                        key=f"garantia_{contexto}_{i}_{form_key}",
+                        disabled=True,
+                        help="Los equipos alquilados no tienen garantía"
+                    )
+                    en_garantia = "No"
+                else:
+                    en_garantia = st.selectbox(f"¿Está en Garantía? ({i+1}) *", ["", "Sí", "No"], key=f"garantia_{contexto}_{i}_{form_key}")
                 
                 fecha_compra = None
                 factura_archivo = None
@@ -2688,16 +2721,25 @@ def mostrar_seccion_equipos(data, contexto="general"):
             motivo = data.get('motivo_solicitud', '')
             fotos_equipo = []
             if motivo in ["Servicio Técnico (reparaciones de equipos en general)", 
-                          "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
-                          "Cambio por falla de funcionamiento crítica"]:
+              "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+              "Cambio por falla de funcionamiento crítica"]:
                 st.markdown(f"**📸 Fotos/videos de fallas del Equipo {i+1}** (opcional)")
-                fotos_equipo = st.file_uploader(
+                fotos_equipo_raw = st.file_uploader(
                     f"Adjunte fotos o videos del problema del Equipo {i+1}",
-                    type=['jpg', 'jpeg', 'png', 'mp4', 'mov'],
+                    type=['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'mkv'],
                     accept_multiple_files=True,
                     key=f"fotos_equipo_{contexto}_{i}_{form_key}",
-                    help="Puede adjuntar múltiples archivos del mismo equipo"
+                    help="Puede adjuntar múltiples archivos del mismo equipo (incluyendo imágenes de WhatsApp)"
                 )
+                if fotos_equipo_raw:
+                    for archivo in fotos_equipo_raw:
+                        partes = archivo.name.lower().split('.')
+                        extension_real = partes[-1] if len(partes) > 1 else ''
+                        extensiones_validas = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'mkv']
+                        if extension_real in extensiones_validas:
+                            fotos_equipo.append(archivo)
+                        else:
+                            st.warning(f"⚠️ Archivo '{archivo.name}' no tiene una extensión válida")
                 if fotos_equipo:
                     st.info(f"📎 {len(fotos_equipo)} archivo(s) para este equipo")
 
@@ -2728,7 +2770,20 @@ def mostrar_seccion_equipos(data, contexto="general"):
         
         with col2:
             marca_equipo_comun = st.selectbox("Marca de Equipo *", MARCAS_EQUIPO, key=f"marca_comun_{contexto}_{form_key}")
-            en_garantia_comun = st.selectbox("¿Están en Garantía? *", ["", "Sí", "No"], key=f"garantia_comun_{contexto}_{form_key}")
+            
+            # Verificar si el equipo es alquilado para deshabilitar garantía
+            equipo_propiedad = data.get('equipo_propiedad', '')
+            if equipo_propiedad == "Alquilado":
+                st.selectbox(
+                    "¿Están en Garantía? *", 
+                    ["No"], 
+                    key=f"garantia_comun_{contexto}_{form_key}",
+                    disabled=True,
+                    help="Los equipos alquilados no tienen garantía"
+                )
+                en_garantia_comun = "No"
+            else:
+                en_garantia_comun = st.selectbox("¿Están en Garantía? *", ["", "Sí", "No"], key=f"garantia_comun_{contexto}_{form_key}")
         
         fecha_compra_comun = None
         factura_comun = None
