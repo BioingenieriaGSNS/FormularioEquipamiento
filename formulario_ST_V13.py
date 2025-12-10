@@ -342,7 +342,7 @@ FALLAS_PROBLEMAS = [
 
 # Mapeo de texto de Post Venta a Asistencia Técnica (para mostrar al usuario)
 TEXTO_POST_VENTA_INTERNO = "Servicio Post Venta (para alguno de nuestros productos adquiridos)"
-TEXTO_ASISTENCIA_TECNICA_DISPLAY = "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)"
+TEXTO_ASISTENCIA_TECNICA_DISPLAY = "Servicio de Asistencia Técnica (para nuestros productos adquiridos)"
 
 # Función para convertir texto display a valor interno
 def normalizar_motivo_solicitud(motivo_display):
@@ -2320,7 +2320,7 @@ def mostrar_seccion_distribuidor(data, es_directo=False):
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
             ["", 
             "Servicio Técnico (reparaciones de equipos en general)", 
-            "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", 
+            "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", 
             "Baja de Alquiler", 
             "Cambio de Alquiler",
             "Cambio por falla de funcionamiento crítica"], 
@@ -2384,7 +2384,7 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
         ["", 
         "Servicio Técnico (reparaciones de equipos en general)", 
-        "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", 
+        "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", 
         "Baja de Alquiler", 
         "Cambio de Alquiler",
         "Cambio por falla de funcionamiento crítica"], 
@@ -2448,7 +2448,7 @@ def mostrar_seccion_institucion(data, es_directo=False):
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
         ["", 
         "Servicio Técnico (reparaciones de equipos en general)", 
-        "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", 
+        "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", 
         "Baja de Alquiler", 
         "Cambio de Alquiler",
         "Cambio por falla de funcionamiento crítica"], 
@@ -2512,7 +2512,7 @@ def mostrar_seccion_institucionB(data, es_directo=False):
         motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
         ["", 
         "Servicio Técnico (reparaciones de equipos en general)", 
-        "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", 
+        "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", 
         "Baja de Alquiler", 
         "Cambio de Alquiler",
         "Cambio por falla de funcionamiento crítica"], 
@@ -2571,7 +2571,7 @@ def mostrar_seccion_paciente(data, es_directo=False):
         if equipo_origen == "Se lo entregaron":
             quien_entrego = st.text_area("¿Quién lo entregó?", placeholder="Obra Social, Distribuidor, Ortopedia, Plataformas Digitales, etc.", key=f"p_quienentrego_{form_key}" )
         
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio de Asistencia Técnica (para alguno de nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"p_motivosolicitud_{form_key}")
+        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"p_motivosolicitud_{form_key}")
         # Normalizar el valor para compatibilidad con BD
         motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
     
