@@ -1839,6 +1839,277 @@ def aplicar_seguridad_formulario(data, archivos_fotos=None, archivos_facturas=No
     })
     
     return True, "✅ Validaciones de seguridad aprobadas"
+def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, form_key):
+    """
+    Flujo condicional para Distribuidor e Institución
+    
+    Pregunta inicial: ¿El equipo es alquilado o propio?
+    - Si Alquilado -> mostrar: ST, Asistencia Técnica, Baja Alquiler, Cambio Alquiler, Cambio por falla crítica
+    - Si Propio -> Pregunta: ¿Nos lo compró de manera directa?
+        - Si Sí -> ¿Está en garantía? (Sí, No, No lo sé)
+            - Si Sí -> Permitir cargar factura + mostrar: ST, Asistencia Técnica, Cambio por falla crítica
+            - Si No o No lo sé -> mostrar: ST, Asistencia Técnica, Cambio por falla crítica
+        - Si No -> mostrar: ST, Asistencia Técnica, Cambio por falla crítica
+    """
+    
+    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
+    
+    # PREGUNTA INICIAL: ¿El equipo es alquilado o propio?
+    equipo_propiedad = st.selectbox(
+        "¿El equipo es alquilado o propio? *",
+        ["", "Alquilado", "Propio"],
+        key=f"{tipo_cliente}_propiedad_{form_key}"
+    )
+    
+    # Variables para almacenar
+    motivo_solicitud = ""
+    compra_directa = None
+    en_garantia = None
+    fecha_compra = None
+    factura_garantia = None
+    motivo_cambio_alquiler = ""
+    
+    # FLUJO PARA ALQUILADO
+    if equipo_propiedad == "Alquilado":
+        motivo_solicitud = st.selectbox(
+            "Motivo de la solicitud *",
+            ["",
+             "Servicio Técnico (reparaciones de equipos en general)",
+             "Asistencia Técnica",
+             "Baja de Alquiler",
+             "Cambio de Alquiler",
+             "Cambio por falla crítica"],
+            key=f"{tipo_cliente}_motivo_alquilado_{form_key}"
+        )
+        
+        # Si es Cambio de Alquiler, pedir motivo
+        if motivo_solicitud == "Cambio de Alquiler":
+            st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
+            motivo_cambio_alquiler = st.text_area(
+                "Motivo del cambio de alquiler *",
+                placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
+                key=f"{tipo_cliente}_motivo_cambio_{form_key}",
+                height=100
+            )
+    
+    # FLUJO PARA PROPIO
+    elif equipo_propiedad == "Propio":
+        # Pregunta: ¿Nos lo compró de manera directa?
+        compra_directa = st.selectbox(
+            "¿El equipo nos lo compró de manera directa? *",
+            ["", "Sí", "No"],
+            key=f"{tipo_cliente}_compra_directa_{form_key}"
+        )
+        
+        # SI COMPRÓ DIRECTA
+        if compra_directa == "Sí":
+            en_garantia = st.selectbox(
+                "¿Está en garantía? *",
+                ["", "Sí", "No", "No lo sé"],
+                key=f"{tipo_cliente}_garantia_{form_key}"
+            )
+            
+            # Si está en garantía, permitir cargar factura
+            if en_garantia == "Sí":
+                col1, col2 = st.columns(2)
+                with col1:
+                    fecha_compra = st.date_input(
+                        "Fecha de Compra *",
+                        value=None,
+                        max_value=date.today(),
+                        format="DD/MM/YYYY",
+                        key=f"{tipo_cliente}_fecha_compra_{form_key}",
+                        help="No puede seleccionar fechas futuras"
+                    )
+                with col2:
+                    factura_garantia = st.file_uploader(
+                        "Adjunte factura *",
+                        type=['pdf', 'jpg', 'jpeg', 'png'],
+                        key=f"{tipo_cliente}_factura_{form_key}"
+                    )
+                
+                # Mostrar motivos disponibles
+                motivo_solicitud = st.selectbox(
+                    "Motivo de la solicitud *",
+                    ["",
+                     "Servicio Técnico (reparaciones de equipos en general)",
+                     "Asistencia Técnica",
+                     "Cambio por falla crítica"],
+                    key=f"{tipo_cliente}_motivo_garantia_{form_key}"
+                )
+            
+            # Si NO está en garantía o No lo sé
+            elif en_garantia in ["No", "No lo sé"]:
+                motivo_solicitud = st.selectbox(
+                    "Motivo de la solicitud *",
+                    ["",
+                     "Servicio Técnico (reparaciones de equipos en general)",
+                     "Asistencia Técnica",
+                     "Cambio por falla crítica"],
+                    key=f"{tipo_cliente}_motivo_sin_garantia_{form_key}"
+                )
+        
+        # SI NO COMPRÓ DIRECTA
+        elif compra_directa == "No":
+            motivo_solicitud = st.selectbox(
+                "Motivo de la solicitud *",
+                ["",
+                 "Servicio Técnico (reparaciones de equipos en general)",
+                 "Asistencia Técnica",
+                 "Cambio por falla crítica"],
+                key=f"{tipo_cliente}_motivo_no_directo_{form_key}"
+            )
+    
+    # Normalizar motivo
+    if motivo_solicitud:
+        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
+    
+    # Retornar todos los datos
+    return {
+        'equipo_propiedad': equipo_propiedad,
+        'compra_directa': compra_directa,
+        'en_garantia': en_garantia,
+        'fecha_compra': fecha_compra,
+        'factura_garantia': factura_garantia,
+        'motivo_solicitud': motivo_solicitud,
+        'motivo_cambio_alquiler': motivo_cambio_alquiler
+    }
+
+
+def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
+    """
+    Flujo condicional para Paciente/Particular
+    
+    Pregunta inicial: El equipo...
+    - Se lo entregaron? -> ¿Quién lo entregó? -> Fecha -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
+    - Lo compró de manera directa? -> ¿Está en garantía? (Sí, No, No lo sé)
+        - Si Sí -> Cargar factura -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
+        - Si No o No lo sé -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
+    """
+    
+    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
+    
+    # PREGUNTA INICIAL
+    equipo_origen = st.selectbox(
+        "El equipo... *",
+        ["", "Se lo entregaron", "Lo compró de manera directa"],
+        key=f"p_origen_{form_key}"
+    )
+    
+    # Variables
+    quien_entrego = ""
+    fecha_entrega = None
+    en_garantia = None
+    fecha_compra = None
+    factura_garantia = None
+    motivo_solicitud = ""
+    
+    # FLUJO: SE LO ENTREGARON
+    if equipo_origen == "Se lo entregaron":
+        quien_entrego = st.text_area(
+            "¿Quién lo entregó? *",
+            placeholder="Obra Social, Distribuidor, Ortopedia, Plataformas Digitales, etc.",
+            key=f"p_quien_entrego_{form_key}",
+            height=80
+        )
+        
+        fecha_entrega = st.date_input(
+            "Fecha de entrega *",
+            value=None,
+            max_value=date.today(),
+            format="DD/MM/YYYY",
+            key=f"p_fecha_entrega_{form_key}",
+            help="Fecha aproximada en que recibió el equipo"
+        )
+        
+        # Habilitar motivo
+        motivo_solicitud = st.selectbox(
+            "Motivo de la solicitud *",
+            ["",
+             "Servicio Técnico (reparaciones de equipos en general)",
+             "Asistencia Técnica",
+             "Cambio por falla crítica"],
+            key=f"p_motivo_entregado_{form_key}"
+        )
+    
+    # FLUJO: LO COMPRÓ DE MANERA DIRECTA
+    elif equipo_origen == "Lo compró de manera directa":
+        en_garantia = st.selectbox(
+            "¿Está en garantía? *",
+            ["", "Sí", "No", "No lo sé"],
+            key=f"p_garantia_{form_key}"
+        )
+        
+        # Si está en garantía, cargar factura
+        if en_garantia == "Sí":
+            col1, col2 = st.columns(2)
+            with col1:
+                fecha_compra = st.date_input(
+                    "Fecha de Compra *",
+                    value=None,
+                    max_value=date.today(),
+                    format="DD/MM/YYYY",
+                    key=f"p_fecha_compra_{form_key}",
+                    help="No puede seleccionar fechas futuras"
+                )
+            with col2:
+                factura_garantia = st.file_uploader(
+                    "Adjunte factura *",
+                    type=['pdf', 'jpg', 'jpeg', 'png'],
+                    key=f"p_factura_{form_key}"
+                )
+            
+            motivo_solicitud = st.selectbox(
+                "Motivo de la solicitud *",
+                ["",
+                 "Servicio Técnico (reparaciones de equipos en general)",
+                 "Asistencia Técnica",
+                 "Cambio por falla crítica"],
+                key=f"p_motivo_garantia_{form_key}"
+            )
+        
+        # Si NO está en garantía o No lo sé
+        elif en_garantia in ["No", "No lo sé"]:
+            motivo_solicitud = st.selectbox(
+                "Motivo de la solicitud *",
+                ["",
+                 "Servicio Técnico (reparaciones de equipos en general)",
+                 "Asistencia Técnica",
+                 "Cambio por falla crítica"],
+                key=f"p_motivo_sin_garantia_{form_key}"
+            )
+    
+    # Normalizar motivo
+    if motivo_solicitud:
+        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
+    
+    return {
+        'equipo_origen': equipo_origen,
+        'quien_entrego': quien_entrego,
+        'fecha_entrega': fecha_entrega,
+        'en_garantia': en_garantia,
+        'fecha_compra': fecha_compra,
+        'factura_garantia': factura_garantia,
+        'motivo_solicitud': motivo_solicitud
+    }
+
+
+def normalizar_motivo_solicitud(motivo_texto):
+    """
+    Normaliza el texto del motivo para compatibilidad con la BD
+    
+    NUEVA VERSIÓN - Reemplazar la función existente
+    """
+    if not motivo_texto:
+        return ""
+    
+    # Mapeo de textos cortos a valores largos en BD
+    mapeo = {
+        "Asistencia Técnica": "Servicio Post Venta (para alguno de nuestros productos adquiridos)",
+        "Cambio por falla crítica": "Cambio por falla de funcionamiento crítica"
+    }
+    
+    return mapeo.get(motivo_texto, motivo_texto)
 
 
 def main():
@@ -2019,7 +2290,6 @@ def main():
             elif equipo_corresponde_a == "Baja de demo":
                 data['motivo_solicitud'] = "Baja de demo"
                 mostrar_seccion_equipos(data, contexto="baja_demo")
-
 
         
         # SECCIÓN 3: Distribuidor directo
@@ -2296,7 +2566,8 @@ def mostrar_resumen_y_descarga():
 
 # Actualizar las funciones de secciones para incluir keys
 def mostrar_seccion_distribuidor(data, es_directo=False):
-    st.markdown(f'<div class="section-header"><h2> Distribuidor</h2></div>', unsafe_allow_html=True)
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
+    st.markdown(f'<div class="section-header"><h2>Distribuidor</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
     
@@ -2317,50 +2588,23 @@ def mostrar_seccion_distribuidor(data, es_directo=False):
             st.warning("⚠️ Solo se permiten números en el teléfono")
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"d_comercial_{form_key}")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"d_contacto_tec_{form_key}")
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
-            ["", 
-            "Servicio Técnico (reparaciones de equipos en general)", 
-            "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", 
-            "Baja de Alquiler", 
-            "Cambio de Alquiler",
-            "Cambio por falla de funcionamiento crítica"], 
-            key=f"d_motivo_{form_key}")
-        # Normalizar el valor para compatibilidad con BD
-        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
-
-        # Campo de motivos para Cambio de Alquiler
-        motivo_cambio_alquiler = ""
-        if motivo_solicitud == "Cambio de Alquiler":
-            st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
-            motivo_cambio_alquiler = st.text_area(
-                "Motivo del cambio de alquiler *", 
-                placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
-                key=f"d_motivo_cambio_{form_key}",
-                height=100
-            )
-
-        # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler ni Cambio de Alquiler
-        if motivo_solicitud not in ["Baja de Alquiler", "Cambio de Alquiler"]:
-            equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
-        else:
-            equipo_propiedad = "Alquilado"
-
+    
     data.update({
         'nombre_fantasia': nombre_fantasia,
         'razon_social': razon_social,
         'cuit': cuit,
         'contacto_nombre': contacto_nombre,
         'contacto_telefono': contacto_telefono,
-        'comercial_syemed': comercial_syemed, 
-        'contacto_tecnico': contacto_tecnico,
-        'motivo_solicitud': motivo_solicitud,
-        'equipo_propiedad': equipo_propiedad,
-        'motivo_cambio_alquiler': motivo_cambio_alquiler  
+        'comercial_syemed': comercial_syemed,
+        'contacto_tecnico': contacto_tecnico
     })
-
+    
+    # NUEVO FLUJO CONDICIONAL
+    flujo_data = mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, "d", form_key)
+    data.update(flujo_data)
 
 def mostrar_seccion_distribuidorB(data, es_directo=False):
-    
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
     st.markdown(f'<div class="section-header"><h2>Ingrese los datos del distribuidor</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
@@ -2381,49 +2625,23 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
         if telefono_input and not telefono_input.isdigit():
             st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"db_contacto_tec_{form_key}")
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
-        ["", 
-        "Servicio Técnico (reparaciones de equipos en general)", 
-        "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", 
-        "Baja de Alquiler", 
-        "Cambio de Alquiler",
-        "Cambio por falla de funcionamiento crítica"], 
-        key=f"d_motivo_{form_key}")
-        # Normalizar el valor para compatibilidad con BD
-        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
-
-    # Campo de motivos para Cambio de Alquiler
-    motivo_cambio_alquiler = ""
-    if motivo_solicitud == "Cambio de Alquiler":
-        st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
-        motivo_cambio_alquiler = st.text_area(
-            "Motivo del cambio de alquiler *", 
-            placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
-            key=f"d_motivo_cambio_{form_key}",
-            height=100
-        )
-
-    # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler ni Cambio de Alquiler
-    if motivo_solicitud not in ["Baja de Alquiler", "Cambio de Alquiler"]:
-        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
-    else:
-        equipo_propiedad = "Alquilado"
-
+    
     data.update({
-            'nombre_fantasia': nombre_fantasia,
-            'razon_social': razon_social,
-            'cuit': cuit,
-            'contacto_nombre': contacto_nombre,
-            'contacto_telefono': contacto_telefono,
-            'contacto_tecnico': contacto_tecnico,
-            'motivo_solicitud': motivo_solicitud,
-            'equipo_propiedad': equipo_propiedad,
-            'motivo_cambio_alquiler': motivo_cambio_alquiler  
-        })
+        'nombre_fantasia': nombre_fantasia,
+        'razon_social': razon_social,
+        'cuit': cuit,
+        'contacto_nombre': contacto_nombre,
+        'contacto_telefono': contacto_telefono,
+        'contacto_tecnico': contacto_tecnico
+    })
+    
+    # NUEVO FLUJO CONDICIONAL
+    flujo_data = mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, "db", form_key)
+    data.update(flujo_data)
 
 
 def mostrar_seccion_institucion(data, es_directo=False):
-    
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
     st.markdown(f'<div class="section-header"><h2>Institución</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
@@ -2445,50 +2663,24 @@ def mostrar_seccion_institucion(data, es_directo=False):
             st.warning("⚠️ Solo se permiten números en el teléfono")
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"i_comercial_{form_key}")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"i_contacto_tec_{form_key}")
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
-        ["", 
-        "Servicio Técnico (reparaciones de equipos en general)", 
-        "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", 
-        "Baja de Alquiler", 
-        "Cambio de Alquiler",
-        "Cambio por falla de funcionamiento crítica"], 
-        key=f"d_motivo_{form_key}")
-        # Normalizar el valor para compatibilidad con BD
-        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
-
-    # Campo de motivos para Cambio de Alquiler
-    motivo_cambio_alquiler = ""
-    if motivo_solicitud == "Cambio de Alquiler":
-        st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
-        motivo_cambio_alquiler = st.text_area(
-            "Motivo del cambio de alquiler *", 
-            placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
-            key=f"d_motivo_cambio_{form_key}",
-            height=100
-        )
-
-    # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler ni Cambio de Alquiler
-    if motivo_solicitud not in ["Baja de Alquiler", "Cambio de Alquiler"]:
-        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
-    else:
-        equipo_propiedad = "Alquilado"
-
+    
     data.update({
-            'nombre_fantasia': nombre_fantasia,
-            'razon_social': razon_social,
-            'cuit': cuit,
-            'contacto_nombre': contacto_nombre,
-            'contacto_telefono': contacto_telefono,
-            'comercial_syemed': comercial_syemed, 
-            'contacto_tecnico': contacto_tecnico,
-            'motivo_solicitud': motivo_solicitud,
-            'equipo_propiedad': equipo_propiedad,
-            'motivo_cambio_alquiler': motivo_cambio_alquiler  
-        })
+        'nombre_fantasia': nombre_fantasia,
+        'razon_social': razon_social,
+        'cuit': cuit,
+        'contacto_nombre': contacto_nombre,
+        'contacto_telefono': contacto_telefono,
+        'comercial_syemed': comercial_syemed,
+        'contacto_tecnico': contacto_tecnico
+    })
+    
+    # NUEVO FLUJO CONDICIONAL
+    flujo_data = mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, "i", form_key)
+    data.update(flujo_data)
 
 
 def mostrar_seccion_institucionB(data, es_directo=False):
-    
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
     st.markdown(f'<div class="section-header"><h2>Ingrese los datos de la Institución</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
@@ -2509,45 +2701,22 @@ def mostrar_seccion_institucionB(data, es_directo=False):
         if telefono_input and not telefono_input.isdigit():
             st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"ib_contacto_tec_{form_key}")
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", 
-        ["", 
-        "Servicio Técnico (reparaciones de equipos en general)", 
-        "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", 
-        "Baja de Alquiler", 
-        "Cambio de Alquiler",
-        "Cambio por falla de funcionamiento crítica"], 
-        key=f"d_motivo_{form_key}")
-        # Normalizar el valor para compatibilidad con BD
-        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
-
-    # Campo de motivos para Cambio de Alquiler
-    motivo_cambio_alquiler = ""
-    if motivo_solicitud == "Cambio de Alquiler":
-        st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
-        motivo_cambio_alquiler = st.text_area(
-            "Motivo del cambio de alquiler *", 
-            placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
-            key=f"d_motivo_cambio_{form_key}",
-            height=100
-        )
-
-    # Solo mostrar pregunta de propiedad si NO es Baja de Alquiler ni Cambio de Alquiler
-    if motivo_solicitud not in ["Baja de Alquiler", "Cambio de Alquiler"]:
-        equipo_propiedad = st.selectbox("¿El equipo es propio o alquilado? *", ["", "Propio", "Alquilado"], key=f"db_propiedad_{form_key}")
-    else:
-        equipo_propiedad = "Alquilado"
-
+    
     data.update({
         'nombre_fantasia': nombre_fantasia,
         'razon_social': razon_social,
         'cuit': cuit,
         'contacto_nombre': contacto_nombre,
         'contacto_telefono': contacto_telefono,
-        'contacto_tecnico': contacto_tecnico,
-        'motivo_solicitud': motivo_solicitud,
-        'equipo_propiedad': equipo_propiedad,
-        'motivo_cambio_alquiler': motivo_cambio_alquiler  
+        'contacto_tecnico': contacto_tecnico
     })
+    
+    # NUEVO FLUJO CONDICIONAL
+    flujo_data = mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, "ib", form_key)
+    data.update(flujo_data)
+
+
+
 
     
 def mostrar_seccion_paciente(data, es_directo=False):
@@ -2659,7 +2828,7 @@ def mostrar_seccion_baja_alquiler(data):
         'observacion_baja': observacion_baja,
         'estado_equipo': estado_equipo
     })
-    
+
 def mostrar_seccion_equipos(data, contexto="general"):
     st.markdown('<div class="section-header"><h2>Datos de los Equipos</h2></div>', unsafe_allow_html=True)
     
@@ -2869,6 +3038,31 @@ def mostrar_seccion_equipos(data, contexto="general"):
     data['equipos'] = equipos
     data['facturas'] = facturas  # NUEVO: Agregar facturas a data
 
+def mostrar_seccion_paciente(data, es_directo=False):
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
+    st.markdown(f'<div class="section-header"><h2>Paciente/Particular</h2></div>', unsafe_allow_html=True)
+    
+    form_key = st.session_state.form_key
+
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        nombre_apellido = st.text_input("Nombre y Apellido *", key=f"p_nombreyapellido_{form_key}")
+        
+    with col2:
+        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"p_telefono_{form_key}", max_chars=15)
+        telefono = validar_solo_numeros(telefono_input)
+        if telefono_input and not telefono_input.isdigit():
+            st.warning("⚠️ Solo se permiten números en el teléfono")
+    
+    data.update({
+        'nombre_apellido_paciente': nombre_apellido,
+        'telefono_paciente': telefono
+    })
+    
+    # NUEVO FLUJO CONDICIONAL
+    flujo_data = mostrar_flujo_motivo_solicitud_paciente(data, form_key)
+    data.update(flujo_data)
 
 def procesar_formulario(data):
     """Procesar formulario incluyendo subida de archivos"""
