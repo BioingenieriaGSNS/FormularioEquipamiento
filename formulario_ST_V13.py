@@ -1348,42 +1348,45 @@ def insertar_solicitud(data, pdf_url=None):
         # observacion_ingreso ya fue calculado arriba, no hace falta recalcularlo
         
         # Insertar equipos (CON fecha_ingreso, OST se genera automático)
+        # CAMBIO: Asistencia Técnica NO genera OST ni se guarda en equipos
         equipos_ids = []
         equipos_osts = []  # Para devolver los OST generados
         
-        for i, equipo in enumerate(data.get('equipos', []), 1):
-            if equipo.get('tipo_equipo') and equipo['tipo_equipo'] != "Seleccionar tipo...":
-                cursor.execute("""
-                    INSERT INTO equipos (
-                        solicitud_id, numero_equipo, tipo_equipo, marca, modelo,
-                        numero_serie, en_garantia, fecha_compra, cliente,
-                        remito, accesorios, prioridad, observacion_ingreso,
-                        fecha_ingreso
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id, ost
-                """, (
-                    solicitud_id, 
-                    i,
-                    equipo['tipo_equipo'],
-                    equipo.get('marca'),
-                    equipo.get('modelo'),
-                    equipo.get('numero_serie'),
-                    equipo.get('en_garantia'),
-                    equipo.get('fecha_compra'),
-                    cliente,
-                    None,  # remito
-                    None,  # accesorios
-                    None,  # prioridad
-                    observacion_ingreso,
-                    datetime.now()  # fecha_ingreso
-                ))
-                
-                resultado = cursor.fetchone()
-                equipo_id = resultado[0]
-                ost = resultado[1]
-                
-                equipos_ids.append(equipo_id)
-                equipos_osts.append(ost)
+        # Solo insertar equipos si NO es Asistencia Técnica
+        if motivo_solicitud != "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+            for i, equipo in enumerate(data.get('equipos', []), 1):
+                if equipo.get('tipo_equipo') and equipo['tipo_equipo'] != "Seleccionar tipo...":
+                    cursor.execute("""
+                        INSERT INTO equipos (
+                            solicitud_id, numero_equipo, tipo_equipo, marca, modelo,
+                            numero_serie, en_garantia, fecha_compra, cliente,
+                            remito, accesorios, prioridad, observacion_ingreso,
+                            fecha_ingreso
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id, ost
+                    """, (
+                        solicitud_id, 
+                        i,
+                        equipo['tipo_equipo'],
+                        equipo.get('marca'),
+                        equipo.get('modelo'),
+                        equipo.get('numero_serie'),
+                        equipo.get('en_garantia'),
+                        equipo.get('fecha_compra'),
+                        cliente,
+                        None,  # remito
+                        None,  # accesorios
+                        None,  # prioridad
+                        observacion_ingreso,
+                        datetime.now()  # fecha_ingreso
+                    ))
+                    
+                    resultado = cursor.fetchone()
+                    equipo_id = resultado[0]
+                    ost = resultado[1]
+                    
+                    equipos_ids.append(equipo_id)
+                    equipos_osts.append(ost)
         
         # Insertar archivos adjuntos en la tabla archivos_adjuntos
         if 'archivos_urls' in data and data['archivos_urls']:
@@ -2833,13 +2836,22 @@ def mostrar_seccion_equipos(data, contexto="general"):
     st.markdown('<div class="section-header"><h2>Datos de los Equipos</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
-
-    modo_carga = st.radio(
-        "¿Cómo desea cargar los equipos?",
-        ["Equipos individuales (diferentes características)", "Múltiples equipos similares (mismo tipo, marca, modelo)"],
-        index=0,
-        key=f"modo_carga_{contexto}_{form_key}"
-    )
+    
+    # Verificar si el motivo permite múltiples equipos
+    motivo_solicitud = data.get('motivo_solicitud', '')
+    permite_multiples = motivo_solicitud in ["Baja de Alquiler", "Cambio de Alquiler", "Equipo de Stock", "Baja de demo"]
+    
+    # Solo mostrar opción de modo de carga si está permitido
+    if permite_multiples:
+        modo_carga = st.radio(
+            "¿Cómo desea cargar los equipos?",
+            ["Equipos individuales (diferentes características)", "Múltiples equipos similares (mismo tipo, marca, modelo)"],
+            index=0,
+            key=f"modo_carga_{contexto}_{form_key}"
+        )
+    else:
+        # Forzar modo individual para otros motivos
+        modo_carga = "Equipos individuales (diferentes características)"
 
     
     equipos = []
@@ -2859,23 +2871,14 @@ def mostrar_seccion_equipos(data, contexto="general"):
             with col2:
                 numero_serie = st.text_input(f"Número de Serie ({i+1}) *", key=f"serie_{contexto}_{i}_{form_key}")
                 
-                # Verificar si el equipo es alquilado para deshabilitar garantía
-                equipo_propiedad = data.get('equipo_propiedad', '')
-                if equipo_propiedad == "Alquilado":
-                    st.selectbox(
-                        f"¿Está en Garantía? ({i+1}) *", 
-                        ["No"], 
-                        key=f"garantia_{contexto}_{i}_{form_key}",
-                        disabled=True,
-                        help="Los equipos alquilados no tienen garantía"
-                    )
-                    en_garantia = "No"
-                else:
-                    en_garantia = st.selectbox(f"¿Está en Garantía? ({i+1}) *", ["", "Sí", "No"], key=f"garantia_{contexto}_{i}_{form_key}")
+                # CAMBIO: Obtener garantía desde Información del Equipo (data)
+                # Ya no se pregunta aquí, se obtiene de la sección anterior
+                en_garantia_global = data.get('en_garantia', None)
                 
-                fecha_compra = None
-                factura_archivo = None
-                if en_garantia == "Sí":
+                # Determinar si está en garantía desde data
+                if en_garantia_global == "Sí":
+                    en_garantia = "Sí"
+                    # Mostrar campos de fecha de compra y factura
                     fecha_compra = st.date_input(
                         f"Fecha de Compra ({i+1})", 
                         value=None, 
@@ -2885,6 +2888,10 @@ def mostrar_seccion_equipos(data, contexto="general"):
                         help="No puede seleccionar fechas futuras"
                     )
                     factura_archivo = st.file_uploader(f"Adjunte factura ({i+1})", type=['pdf', 'jpg', 'jpeg', 'png'], key=f"factura_{contexto}_{i}_{form_key}")
+                else:
+                    en_garantia = "No"
+                    fecha_compra = None
+                    factura_archivo = None
             
             # Fotos/videos de fallas por equipo
             motivo = data.get('motivo_solicitud', '')
@@ -2932,6 +2939,11 @@ def mostrar_seccion_equipos(data, contexto="general"):
         # Modo múltiples equipos similares
         st.markdown('<div class="equipment-section"><h3>Información Común de los Equipos</h3>', unsafe_allow_html=True)
         
+        # Mensaje informativo sobre fotos/videos deshabilitados
+        motivo_solicitud = data.get('motivo_solicitud', '')
+        if motivo_solicitud in ["Baja de Alquiler", "Cambio de Alquiler", "Equipo de Stock", "Baja de demo"]:
+            st.info("ℹ️ Al cargar múltiples equipos a la vez, puede listar todos los números de serie con saltos de línea a o comas.")
+        
         col1, col2 = st.columns(2)
         with col1:
             tipo_equipo_comun = st.selectbox("Tipo de Equipo *", TIPOS_EQUIPO, key=f"tipo_comun_{contexto}_{form_key}")
@@ -2940,19 +2952,13 @@ def mostrar_seccion_equipos(data, contexto="general"):
         with col2:
             marca_equipo_comun = st.selectbox("Marca de Equipo *", MARCAS_EQUIPO, key=f"marca_comun_{contexto}_{form_key}")
             
-            # Verificar si el equipo es alquilado para deshabilitar garantía
-            equipo_propiedad = data.get('equipo_propiedad', '')
-            if equipo_propiedad == "Alquilado":
-                st.selectbox(
-                    "¿Están en Garantía? *", 
-                    ["No"], 
-                    key=f"garantia_comun_{contexto}_{form_key}",
-                    disabled=True,
-                    help="Los equipos alquilados no tienen garantía"
-                )
-                en_garantia_comun = "No"
+            # CAMBIO: Obtener garantía desde Información del Equipo (data)
+            en_garantia_global = data.get('en_garantia', None)
+            
+            if en_garantia_global == "Sí":
+                en_garantia_comun = "Sí"
             else:
-                en_garantia_comun = st.selectbox("¿Están en Garantía? *", ["", "Sí", "No"], key=f"garantia_comun_{contexto}_{form_key}")
+                en_garantia_comun = "No"
         
         fecha_compra_comun = None
         factura_comun = None
