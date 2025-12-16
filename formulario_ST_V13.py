@@ -14,8 +14,9 @@ load_dotenv()
 # FUNCIÓN HELPER PARA FECHA/HORA DE BUENOS AIRES
 # ============================================================================
 def ahora_buenos_aires():
-    """Retorna la fecha/hora actual en zona horaria de Buenos Aires (Argentina)"""
-    return datetime.now(ZoneInfo("America/Argentina/Buenos_Aires"))
+    """Retorna la fecha/hora actual en zona horaria de Buenos Aires (Argentina)
+    Sin información de timezone para compatibilidad con TIMESTAMP en PostgreSQL"""
+    return datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).replace(tzinfo=None)
 
 # Importar módulos necesarios al inicio
 import cloudinary
@@ -582,7 +583,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     estilo_normal = estilos['Normal']
     
     # Título
-    elementos.append(Paragraph(f"Solicitud de Servicio Técnico - Caso #{ost_principal}", estilo_titulo))
+    elementos.append(Paragraph(f"Solicitud de Servicio Técnico - Caso #{solicitud_id}", estilo_titulo))
     elementos.append(Paragraph(f"Fecha: {ahora_buenos_aires().strftime('%d/%m/%Y %H:%M')}", estilo_normal))
     elementos.append(Spacer(1, 0.3*inch))
     
@@ -2680,7 +2681,7 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
         cuit = validar_solo_numeros(cuit_input)
         if cuit_input and not cuit_input.isdigit():
             st.warning("⚠️ Solo se permiten números en el CUIT")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"db_contacto_{form_key}")
+        
     
     with col2:
         telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"db_tel_{form_key}", max_chars=15)
@@ -2688,7 +2689,8 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
         if telefono_input and not telefono_input.isdigit():
             st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"db_contacto_tec_{form_key}")
-    
+        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"db_contacto_{form_key}")
+
     data.update({
         'nombre_fantasia': nombre_fantasia,
         'razon_social': razon_social,
@@ -2756,7 +2758,7 @@ def mostrar_seccion_institucionB(data, es_directo=False):
         cuit = validar_solo_numeros(cuit_input)
         if cuit_input and not cuit_input.isdigit():
             st.warning("⚠️ Solo se permiten números en el CUIT")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"ib_contacto_{form_key}")
+        
     
     with col2:
         telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"ib_tel_{form_key}", max_chars=15)
@@ -2764,6 +2766,7 @@ def mostrar_seccion_institucionB(data, es_directo=False):
         if telefono_input and not telefono_input.isdigit():
             st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"ib_contacto_tec_{form_key}")
+        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"ib_contacto_{form_key}")
     
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -2927,8 +2930,9 @@ def mostrar_seccion_equipos(data, contexto="general"):
             with col1:
                 tipo_equipo = st.selectbox(f"Tipo de Equipo ({i+1}) *", TIPOS_EQUIPO, key=f"tipo_{contexto}_{i}_{form_key}")
                 marca_equipo = st.selectbox(f"Marca de Equipo ({i+1}) *", MARCAS_EQUIPO, key=f"marca_{contexto}_{i}_{form_key}")
-                modelo_equipo = st.selectbox(f"Modelo de Equipo ({i+1}) *", MODELOS_EQUIPO, key=f"modelo_{contexto}_{i}_{form_key}")
+                
             with col2:
+                modelo_equipo = st.selectbox(f"Modelo de Equipo ({i+1}) *", MODELOS_EQUIPO, key=f"modelo_{contexto}_{i}_{form_key}")
                 numero_serie = st.text_input(f"Número de Serie ({i+1}) *", key=f"serie_{contexto}_{i}_{form_key}")
                 
                 # CAMBIO: Obtener garantía desde Información del Equipo (data)
