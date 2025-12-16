@@ -1413,34 +1413,72 @@ def insertar_solicitud(data, pdf_url=None):
         equipos_ids = []
         equipos_osts = []  # Para devolver los OST generados
         
+        # Verificar si la columna factura_url existe en la tabla equipos (retrocompatibilidad)
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='equipos' AND column_name='factura_url'
+        """)
+        factura_url_existe = cursor.fetchone() is not None
+        
         # Solo insertar equipos si NO es Asistencia Técnica
         if motivo_solicitud != "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
             for i, equipo in enumerate(data.get('equipos', []), 1):
                 if equipo.get('tipo_equipo') and equipo['tipo_equipo'] != "Seleccionar tipo...":
-                    cursor.execute("""
-                        INSERT INTO equipos (
-                            solicitud_id, numero_equipo, tipo_equipo, marca, modelo,
-                            numero_serie, en_garantia, fecha_compra, cliente,
-                            remito, accesorios, prioridad, observacion_ingreso,
-                            fecha_ingreso
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id, ost
-                    """, (
-                        solicitud_id, 
-                        i,
-                        equipo['tipo_equipo'],
-                        equipo.get('marca'),
-                        equipo.get('modelo'),
-                        equipo.get('numero_serie'),
-                        equipo.get('en_garantia'),
-                        equipo.get('fecha_compra'),
-                        cliente,
-                        None,  # remito
-                        None,  # accesorios
-                        None,  # prioridad
-                        observacion_ingreso,
-                        ahora_buenos_aires()  # fecha_ingreso
-                    ))
+                    
+                    if factura_url_existe:
+                        # VERSIÓN CON factura_url (BD actualizada)
+                        cursor.execute("""
+                            INSERT INTO equipos (
+                                solicitud_id, numero_equipo, tipo_equipo, marca, modelo,
+                                numero_serie, en_garantia, fecha_compra, factura_url, cliente,
+                                remito, accesorios, prioridad, observacion_ingreso,
+                                fecha_ingreso
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            RETURNING id, ost
+                        """, (
+                            solicitud_id, 
+                            i,
+                            equipo['tipo_equipo'],
+                            equipo.get('marca'),
+                            equipo.get('modelo'),
+                            equipo.get('numero_serie'),
+                            equipo.get('en_garantia'),
+                            equipo.get('fecha_compra'),
+                            equipo.get('factura_url'),  # URL de la factura
+                            cliente,
+                            None,  # remito
+                            None,  # accesorios
+                            None,  # prioridad
+                            observacion_ingreso,
+                            ahora_buenos_aires()  # fecha_ingreso
+                        ))
+                    else:
+                        # VERSIÓN SIN factura_url (retrocompatible)
+                        cursor.execute("""
+                            INSERT INTO equipos (
+                                solicitud_id, numero_equipo, tipo_equipo, marca, modelo,
+                                numero_serie, en_garantia, fecha_compra, cliente,
+                                remito, accesorios, prioridad, observacion_ingreso,
+                                fecha_ingreso
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            RETURNING id, ost
+                        """, (
+                            solicitud_id, 
+                            i,
+                            equipo['tipo_equipo'],
+                            equipo.get('marca'),
+                            equipo.get('modelo'),
+                            equipo.get('numero_serie'),
+                            equipo.get('en_garantia'),
+                            equipo.get('fecha_compra'),
+                            cliente,
+                            None,  # remito
+                            None,  # accesorios
+                            None,  # prioridad
+                            observacion_ingreso,
+                            ahora_buenos_aires()  # fecha_ingreso
+                        ))
                     
                     resultado = cursor.fetchone()
                     equipo_id = resultado[0]
@@ -1461,8 +1499,13 @@ def insertar_solicitud(data, pdf_url=None):
                 if tipo_archivo == 'factura':
                     categoria = 'factura'
                     # Vincular factura al equipo correspondiente
-                    equipo_num = archivo_info.get('equipo_num', 1)
-                    if equipo_num <= len(equipos_ids):
+                    equipo_num = archivo_info.get('equipo_num')
+                    
+                    # Si equipo_num es 'todos', vincular al primer equipo
+                    # La factura también se guarda en equipos.factura_url para todos
+                    if equipo_num == 'todos' and equipos_ids:
+                        equipo_id_ref = equipos_ids[0]  # Vincular al primer equipo
+                    elif isinstance(equipo_num, int) and equipo_num <= len(equipos_ids):
                         equipo_id_ref = equipos_ids[equipo_num - 1]
                 
                 elif tipo_archivo == 'foto_video':
@@ -2918,7 +2961,6 @@ def mostrar_seccion_equipos(data, contexto="general"):
 
     
     equipos = []
-    facturas = []  # NUEVO: Lista para almacenar facturas
     
     if modo_carga == "Equipos individuales (diferentes características)":
         num_equipos = st.number_input("¿Cuántos equipos desea registrar?", min_value=1, max_value=100, value=1, key=f"num_equipos_{contexto}_{form_key}")
@@ -2987,8 +3029,6 @@ def mostrar_seccion_equipos(data, contexto="general"):
                 'fecha_compra': fecha_compra,
                 'fotos_fallas': fotos_equipo  # ← NUEVO
             })
-            
-            facturas.append(factura_archivo)
             
             st.markdown('</div>', unsafe_allow_html=True)
     
@@ -3081,7 +3121,6 @@ def mostrar_seccion_equipos(data, contexto="general"):
                     'en_garantia': en_garantia_comun == "Sí",
                     'fecha_compra': fecha_compra_comun
                 })
-                facturas.append(factura_comun)  # NUEVO: Misma factura para todos
         
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -3089,7 +3128,6 @@ def mostrar_seccion_equipos(data, contexto="general"):
             st.success(f"✅ Total de equipos que se registrarán: **{len(equipos)}**")
     
     data['equipos'] = equipos
-    data['facturas'] = facturas  # NUEVO: Agregar facturas a data
 
 def mostrar_seccion_paciente(data, es_directo=False):
     """VERSIÓN NUEVA - Reemplaza la función existente"""
@@ -3146,19 +3184,25 @@ def procesar_formulario(data):
                             'tamano': archivo.size
                         })
         
-        # Subir facturas si existen
-        if 'facturas' in data and data['facturas']:
-            for i, factura in enumerate(data['facturas']):
-                if factura:
-                    exito, resultado = subir_archivo_cloudinary(factura, "solicitudes_st/facturas")
-                    if exito:
-                        urls_archivos.append({
-                            'tipo': 'factura',
-                            'equipo_num': i + 1,
-                            'nombre': factura.name,
-                            'url': resultado,
-                            'tamano': factura.size
-                        })
+        # MODIFICADO: Subir factura desde factura_garantia (capturada en Información del Equipo)
+        # Esta factura es la misma para todos los equipos
+        factura_url_global = None
+        if 'factura_garantia' in data and data['factura_garantia']:
+            factura = data['factura_garantia']
+            exito, resultado = subir_archivo_cloudinary(factura, "solicitudes_st/facturas")
+            if exito:
+                factura_url_global = resultado
+                urls_archivos.append({
+                    'tipo': 'factura',
+                    'equipo_num': 'todos',  # Se aplica a todos los equipos
+                    'nombre': factura.name,
+                    'url': resultado,
+                    'tamano': factura.size
+                })
+        
+        # NUEVO: Agregar URL de factura a cada equipo
+        for equipo in data.get('equipos', []):
+            equipo['factura_url'] = factura_url_global
     
     # Agregar URLs a data
     data['archivos_urls'] = urls_archivos
