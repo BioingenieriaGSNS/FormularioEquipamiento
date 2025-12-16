@@ -1,6 +1,7 @@
 import streamlit as st
 import psycopg2
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
 import os
 import hashlib
 import re
@@ -8,6 +9,13 @@ import re
 # Cargar variables de entorno primero
 from dotenv import load_dotenv
 load_dotenv()
+
+# ============================================================================
+# FUNCIÓN HELPER PARA FECHA/HORA DE BUENOS AIRES
+# ============================================================================
+def ahora_buenos_aires():
+    """Retorna la fecha/hora actual en zona horaria de Buenos Aires (Argentina)"""
+    return datetime.now(ZoneInfo("America/Argentina/Buenos_Aires"))
 
 # Importar módulos necesarios al inicio
 import cloudinary
@@ -151,7 +159,7 @@ def subir_archivo_cloudinary(archivo, carpeta="solicitudes_st"):
         if not cloudinary.config().cloud_name:
             return False, "Cloudinary no está configurado. Verifica las variables de entorno."
         
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = ahora_buenos_aires().strftime("%Y%m%d_%H%M%S")
         # Sanitizar nombre: quitar espacios, &, y caracteres especiales
         nombre_limpio = re.sub(r'[^\w\-.]', '_', archivo.name)
         nombre_archivo = f"{timestamp}_{nombre_limpio}"
@@ -214,7 +222,7 @@ def subir_pdf_bytes_cloudinary(pdf_bytes, nombre_archivo, carpeta="solicitudes_s
             resource_type="raw",  # CRÍTICO para PDFs
             format="pdf",
             overwrite=True,
-            tags=["solicitud_pdf", datetime.now().strftime("%Y%m%d")]
+            tags=["solicitud_pdf", ahora_buenos_aires().strftime("%Y%m%d")]
         )
         
         return True, resultado['secure_url']
@@ -350,6 +358,12 @@ def normalizar_motivo_solicitud(motivo_display):
     if motivo_display == TEXTO_ASISTENCIA_TECNICA_DISPLAY:
         return TEXTO_POST_VENTA_INTERNO
     return motivo_display
+
+def formatear_motivo_solicitud_display(motivo_interno):
+    """Convierte el texto interno de BD al texto para mostrar en PDF"""
+    if motivo_interno == TEXTO_POST_VENTA_INTERNO:
+        return "Asistencia Técnica"
+    return motivo_interno
 
 def validar_email_formato(email):
     """
@@ -568,8 +582,8 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     estilo_normal = estilos['Normal']
     
     # Título
-    elementos.append(Paragraph(f"Solicitud de Servicio Técnico - OST #{ost_principal}", estilo_titulo))
-    elementos.append(Paragraph(f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilo_normal))
+    elementos.append(Paragraph(f"Solicitud de Servicio Técnico - Caso #{ost_principal}", estilo_titulo))
+    elementos.append(Paragraph(f"Fecha: {ahora_buenos_aires().strftime('%d/%m/%Y %H:%M')}", estilo_normal))
     elementos.append(Spacer(1, 0.3*inch))
     
     # ====================================================================================
@@ -633,7 +647,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
                 ["Teléfono:", data.get('contacto_telefono', 'N/A')],
                 ["Comercial a cargo:", data.get('comercial_syemed', 'N/A')],
                 ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
-                ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+                ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
                 ["Propio o Alquilado:", data.get('equipo_propiedad', 'N/A')],
             ])
             
@@ -643,7 +657,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
                 ["Teléfono:", data.get('telefono_paciente', 'N/A')],
                 ["Dirección:", data.get('direccion_paciente', 'N/A')],
                 ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
-                ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+                ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
                 ["Diagnóstico del Paciente:", data.get('diagnostico_paciente', 'N/A')],
             ])
         
@@ -671,7 +685,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             ["Teléfono:", data.get('contacto_telefono', 'N/A')],
             ["Comercial a cargo:", data.get('comercial_syemed', 'N/A')],
             ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
-            ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+            ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
             ["Propio o Alquilado:", data.get('equipo_propiedad', 'N/A')],
         ])
         
@@ -698,7 +712,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             ["Teléfono:", data.get('contacto_telefono', 'N/A')],
             ["Comercial a cargo:", data.get('comercial_syemed', 'N/A')],
             ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
-            ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+            ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
             ["Propio o Alquilado:", data.get('equipo_propiedad', 'N/A')],
         ])
         
@@ -722,7 +736,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             ["Teléfono:", data.get('telefono_paciente', 'N/A')],
             ["Dirección:", data.get('direccion_paciente', 'N/A')],
             ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
-            ["Motivo solicitud:", data.get('motivo_solicitud', 'N/A')],
+            ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
         ])
         
         tabla_info = Table(info_general, colWidths=[2*inch, 4*inch])
@@ -930,7 +944,7 @@ def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data, equipos_os
     try:
         # Crear mensaje
         msg = MIMEMultipart()
-        msg['From'] = f"Asistencia Técnica y Servicio Técnico Syemed <{sender_email}>"
+        msg['From'] = f"Post Venta y Servicio Técnico Syemed <{sender_email}>"
         msg['To'] = destinatario
         
         # Agregar copia si está configurada
@@ -1019,7 +1033,7 @@ DETALLES DE LA SOLICITUD:
 {info_telefono}
 {info_contacto_tecnico}
 - Cantidad de equipos: {num_equipos}
-- Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+- Fecha: {ahora_buenos_aires().strftime('%d/%m/%Y %H:%M')}
 
 Adjunto encontrará el resumen completo de su solicitud en formato PDF.
 
@@ -1045,7 +1059,7 @@ Este es un email automático. Por favor no responda a este mensaje.
         pdf_attachment.add_header(
             'Content-Disposition', 
             'attachment', 
-            filename=f'Solicitud_ST_{solicitud_id}_{datetime.now().strftime("%Y%m%d")}.pdf'
+            filename=f'Solicitud_ST_{solicitud_id}_{ahora_buenos_aires().strftime("%Y%m%d")}.pdf'
         )
         msg.attach(pdf_attachment)
         
@@ -1094,59 +1108,105 @@ def conectar_bd():
 
 def generar_codigo_categoria(data):
     """
-    Genera el código de categoría según las reglas:
+    Genera el código de categoría según las reglas NUEVAS:
+    
+    Para opciones especiales:
     * S: Equipo de Stock
     * BD: Baja de Demo
-    * ST: Servicio Técnico
-    * PV: Servicio de Asistencia Técnica (Post Venta)
-    * BA: Baja de Alquiler
-    * CA: Cambio de Alquiler
-    * FC: Cambio por Falla de Funcionamiento crítica
-    * G: Garantía
-    * A: Alquiler
-    * R: Reparación
     
-    Combina según:
-    - PV, ST, FC se combinan con R/G/R/A
-    - S, BD, BA, CA van solos
+    Para Distribuidor/Institución:
+    Si Alquilado:
+      A/ST/R   -> Servicio Técnico
+      A/AT     -> Asistencia Técnica  
+      A/BA     -> Baja de Alquiler
+      A/CA     -> Cambio de Alquiler
+      A/FC     -> Cambio por Falla Crítica
     
-    Ejemplo: R/A/ST (Reparación en Alquiler de Servicio Técnico)
+    Si Propio con Garantía Sí:
+      G/ST/R   -> Servicio Técnico
+      G/AT     -> Asistencia Técnica
+      G/FC     -> Cambio por Falla Crítica
+    
+    Si Propio con Garantía No:
+      ST/R     -> Servicio Técnico
+      AT       -> Asistencia Técnica
+      FC       -> Cambio por Falla Crítica
+    
+    Para Paciente/Particular:
+    Si se lo entregaron:
+      ST/R     -> Servicio Técnico
+      AT       -> Asistencia Técnica
+      FC       -> Cambio por Falla Crítica
+    
+    Si lo compró con Garantía Sí:
+      G/ST/R   -> Servicio Técnico
+      G/AT     -> Asistencia Técnica
+      G/FC     -> Cambio por Falla Crítica
     """
     motivo = data.get('motivo_solicitud', '')
     equipo_propiedad = data.get('equipo_propiedad', '')
+    quien_completa = data.get('quien_completa', '')
     
     # Determinar si hay equipos en garantía
     equipos = data.get('equipos', [])
     tiene_garantia = any(equipo.get('en_garantia', False) for equipo in equipos)
     
-    # Mapeo de motivos a códigos
+    # Obtener el valor de en_garantia desde data (de la sección Información del Equipo)
+    en_garantia_data = data.get('en_garantia', None)
+    if en_garantia_data == "Sí":
+        tiene_garantia = True
+    elif en_garantia_data in ["No", "No lo sé"]:
+        tiene_garantia = False
+    
+    # Mapear motivos a códigos
+    if motivo == "Equipo de Stock":
+        return "S"
+    elif motivo == "Baja de demo":
+        return "BD"
+    elif motivo == "Baja de Alquiler":
+        return "A/BA"
+    elif motivo == "Cambio de Alquiler":
+        return "A/CA"
+    
+    # Para Servicio Técnico, Asistencia Técnica (Post Venta), Cambio por falla crítica
     if motivo == "Servicio Técnico (reparaciones de equipos en general)":
-        codigo_motivo = "ST"
+        codigo_motivo = "ST/R"
     elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-        codigo_motivo = "PV"
+        codigo_motivo = "AT"
     elif motivo == "Cambio por falla de funcionamiento crítica":
         codigo_motivo = "FC"
-    elif motivo == "Baja de Alquiler":
-        return "BA"  # Va solo
-    elif motivo == "Cambio de Alquiler":
-        return "CA"  # Va solo
-    elif motivo == "Equipo de Stock":
-        return "S"  # Va solo
-    elif motivo == "Baja de Demo":
-        return "BD"  # Va solo
     else:
         return "N/A"
     
-    # Para PV, ST, FC: combinar con R/G o R/A
-    if codigo_motivo in ["PV", "ST", "FC"]:
-        # Determinar tipo de servicio
-        if tiene_garantia:
-            return f"R/G/{codigo_motivo}"
-        elif equipo_propiedad == "Alquilado":
-            return f"R/A/{codigo_motivo}"
-        else:
-            # Reparación sin garantía ni alquiler (equipo propio)
-            return f"R/{codigo_motivo}"
+    # Para Distribuidor/Institución
+    if quien_completa in ["Distribuidor", "Institución", "Colaborador de Syemed"]:
+        equipo_origen = data.get('equipo_origen', '')
+        
+        # Si es alquilado
+        if equipo_propiedad == "Alquilado":
+            return f"A/{codigo_motivo}"
+        
+        # Si es propio
+        elif equipo_propiedad == "Propio":
+            if tiene_garantia:
+                return f"G/{codigo_motivo}"
+            else:
+                return codigo_motivo
+    
+    # Para Paciente/Particular
+    elif quien_completa == "Paciente/Particular":
+        equipo_origen = data.get('equipo_origen', '')
+        
+        # Si se lo entregaron
+        if equipo_origen == "Se lo entregaron":
+            return codigo_motivo
+        
+        # Si lo compró de manera directa
+        elif equipo_origen == "Lo compró de manera directa":
+            if tiene_garantia:
+                return f"G/{codigo_motivo}"
+            else:
+                return codigo_motivo
     
     return "N/A"
 
@@ -1296,7 +1356,7 @@ def insertar_solicitud(data, pdf_url=None):
             )
             RETURNING id
         """, (
-            datetime.now(),
+            ahora_buenos_aires(),
             email,
             quien_completa,
             area_solicitante,
@@ -1378,7 +1438,7 @@ def insertar_solicitud(data, pdf_url=None):
                         None,  # accesorios
                         None,  # prioridad
                         observacion_ingreso,
-                        datetime.now()  # fecha_ingreso
+                        ahora_buenos_aires()  # fecha_ingreso
                     ))
                     
                     resultado = cursor.fetchone()
@@ -1426,7 +1486,7 @@ def insertar_solicitud(data, pdf_url=None):
                     archivo_info.get('url'),
                     archivo_info.get('nombre', '').split('.')[-1].lower(),
                     archivo_info.get('tamano'),
-                    datetime.now(),
+                    ahora_buenos_aires(),
                     categoria
                 ))
         
@@ -1472,7 +1532,7 @@ def verificar_rate_limit(max_solicitudes=3, ventana_minutos=60):
         st.session_state.rate_limit = {}
     
     user_key = obtener_rate_limit_key()
-    ahora = datetime.now()
+    ahora = ahora_buenos_aires()
     
     # Limpiar registros antiguos
     if user_key in st.session_state.rate_limit:
@@ -1496,7 +1556,7 @@ def registrar_solicitud_rate_limit():
     user_key = obtener_rate_limit_key()
     if user_key not in st.session_state.rate_limit:
         st.session_state.rate_limit[user_key] = []
-    st.session_state.rate_limit[user_key].append(datetime.now())
+    st.session_state.rate_limit[user_key].append(ahora_buenos_aires())
 
 
 # ============================================================================
@@ -1745,10 +1805,10 @@ def log_evento_seguridad(tipo_evento, detalles):
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
     
-    log_file = log_dir / f"seguridad_{datetime.now().strftime('%Y%m')}.log"
+    log_file = log_dir / f"seguridad_{ahora_buenos_aires().strftime('%Y%m')}.log"
     
     evento = {
-        'timestamp': datetime.now().isoformat(),
+        'timestamp': ahora_buenos_aires().isoformat(),
         'tipo': tipo_evento,
         'user_id': obtener_rate_limit_key(),
         'detalles': detalles
@@ -2878,16 +2938,9 @@ def mostrar_seccion_equipos(data, contexto="general"):
                 # Determinar si está en garantía desde data
                 if en_garantia_global == "Sí":
                     en_garantia = "Sí"
-                    # Mostrar campos de fecha de compra y factura
-                    fecha_compra = st.date_input(
-                        f"Fecha de Compra ({i+1})", 
-                        value=None, 
-                        max_value=date.today(),
-                        format="DD/MM/YYYY",
-                        key=f"fecha_{contexto}_{i}_{form_key}",
-                        help="No puede seleccionar fechas futuras"
-                    )
-                    factura_archivo = st.file_uploader(f"Adjunte factura ({i+1})", type=['pdf', 'jpg', 'jpeg', 'png'], key=f"factura_{contexto}_{i}_{form_key}")
+                    # La fecha de compra y factura se cargan en "Información del Equipo", no aquí
+                    fecha_compra = data.get('fecha_compra', None)
+                    factura_archivo = None  # Ya no se carga aquí
                 else:
                     en_garantia = "No"
                     fecha_compra = None
@@ -2960,19 +3013,9 @@ def mostrar_seccion_equipos(data, contexto="general"):
             else:
                 en_garantia_comun = "No"
         
-        fecha_compra_comun = None
-        factura_comun = None
-        if en_garantia_comun == "Sí":
-            fecha_compra_comun = st.date_input(
-                "Fecha de Compra (común para todos)", 
-                value=None, 
-                max_value=date.today(),
-                format="DD/MM/YYYY",
-                key=f"fecha_comun_{contexto}_{form_key}",
-                help="No puede seleccionar fechas futuras"
-            )
-            factura_comun = st.file_uploader("Adjunte factura (común para todos)", type=['pdf', 'jpg', 'jpeg', 'png'], key=f"factura_comun_{contexto}_{form_key}")
-            
+        # La fecha de compra y factura se cargan en "Información del Equipo", no aquí
+        fecha_compra_comun = data.get('fecha_compra', None)
+        factura_comun = None  # Ya no se carga aquí
         
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -3139,7 +3182,7 @@ def procesar_formulario(data):
     try:
         with st.spinner("📄 Generando PDF..."):
             pdf_bytes = generar_pdf_solicitud(data, solicitud_id=solicitud_id, equipos_osts=equipos_osts)
-            pdf_filename = f"solicitud_ST_{solicitud_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            pdf_filename = f"solicitud_ST_{solicitud_id}_{ahora_buenos_aires().strftime('%Y%m%d_%H%M%S')}.pdf"
     except Exception as e:
         st.error(f"❌ Error al generar PDF: {e}")
         return
