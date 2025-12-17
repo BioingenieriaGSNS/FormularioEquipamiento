@@ -490,10 +490,33 @@ def validar_campos_obligatorios(data):
             errores.append("Nombre y Apellido es obligatorio")
         if not data.get('telefono_paciente'):
             errores.append("Teléfono de contacto es obligatorio")
-        if not data.get('equipo_origen'):
-            errores.append("Origen del equipo es obligatorio")
-        if not data.get('motivo_solicitud'):
-            errores.append("Motivo de la solicitud es obligatorio")
+        if not data.get('equipo_origen') and not data.get('equipo_propiedad'):
+            errores.append("Debe indicar el tipo de equipo (Alquilado, Se lo entregaron, o Lo compró)")
+        
+        # Validaciones específicas según el tipo
+        if data.get('equipo_propiedad') == "Alquilado":
+            if not data.get('motivo_solicitud'):
+                errores.append("Motivo de la solicitud es obligatorio")
+            if data.get('motivo_solicitud') == "Cambio de Alquiler":
+                if not data.get('motivo_cambio_alquiler'):
+                    errores.append("Motivo del cambio de alquiler es obligatorio")
+        elif data.get('equipo_origen') == "Se lo entregaron":
+            if not data.get('quien_entrego'):
+                errores.append("'¿Quién lo entregó?' es obligatorio")
+            if not data.get('fecha_entrega'):
+                errores.append("Fecha de entrega es obligatoria")
+            if not data.get('motivo_solicitud'):
+                errores.append("Motivo de la solicitud es obligatorio")
+        elif data.get('equipo_origen') == "Lo compró de manera directa":
+            if not data.get('en_garantia'):
+                errores.append("'¿Está en garantía?' es obligatorio")
+            if data.get('en_garantia') == "Sí":
+                if not data.get('fecha_compra'):
+                    errores.append("Fecha de compra es obligatoria")
+                if not data.get('factura_garantia'):
+                    errores.append("Factura es obligatoria")
+            if not data.get('motivo_solicitud'):
+                errores.append("Motivo de la solicitud es obligatorio")
     
     # Validaciones según motivo de solicitud
     motivo = data.get('motivo_solicitud', '')
@@ -735,10 +758,24 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         info_general.extend([
             ["Nombre y Apellido:", data.get('nombre_apellido_paciente', 'N/A')],
             ["Teléfono:", data.get('telefono_paciente', 'N/A')],
-            ["Dirección:", data.get('direccion_paciente', 'N/A')],
-            ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
             ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
         ])
+        
+        # NUEVO: Mostrar datos adicionales de paciente
+        equipo_propiedad = data.get('equipo_propiedad')
+        if equipo_propiedad == "Alquilado":
+            info_general.append(["Tipo de equipo:", "Alquilado"])
+        else:
+            equipo_origen = data.get('equipo_origen')
+            if equipo_origen == "Se lo entregaron":
+                info_general.extend([
+                    ["Tipo de equipo:", "Se lo entregaron"],
+                    ["Quién lo entregó:", data.get('quien_entrego', 'N/A')],
+                    ["Fecha de entrega:", data.get('fecha_entrega', 'N/A')],
+                    ["Obra Social:", data.get('obra_social', 'N/A') if data.get('obra_social') else 'N/A']
+                ])
+            elif equipo_origen == "Lo compró de manera directa":
+                info_general.append(["Tipo de equipo:", "Lo compró de manera directa"])
         
         tabla_info = Table(info_general, colWidths=[2*inch, 4*inch])
         tabla_info.setStyle(TableStyle([
@@ -830,9 +867,23 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         if partes:
             detalle_observacion = ' | '.join(partes)
     
-    # Mostrar sección DETALLES TÉCNICOS si hay información
+    # NUEVO: Determinar el título de la sección según el motivo
+    titulo_seccion_tecnica = "DETALLES TÉCNICOS"
+    
+    if motivo_solicitud == "Servicio Técnico (reparaciones de equipos en general)":
+        titulo_seccion_tecnica = "DETALLES DEL SERVICIO TÉCNICO"
+    elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+        titulo_seccion_tecnica = "DETALLES DE ASISTENCIA TÉCNICA"
+    elif motivo_solicitud == "Baja de Alquiler":
+        titulo_seccion_tecnica = "DETALLES DE BAJA DE ALQUILER"
+    elif motivo_solicitud == "Cambio de Alquiler":
+        titulo_seccion_tecnica = "DETALLES DE CAMBIO DE ALQUILER"
+    elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
+        titulo_seccion_tecnica = "DETALLES DE CAMBIO POR FALLA CRÍTICA"
+    
+    # Mostrar sección con título dinámico si hay información
     if tiene_info_tecnica:
-        elementos.append(Paragraph("DETALLES TÉCNICOS", estilo_subtitulo))
+        elementos.append(Paragraph(titulo_seccion_tecnica, estilo_subtitulo))
         
         # Para ST y Asistencia Técnica: mostrar fallas seleccionadas
         if motivo_solicitud in ["Servicio Técnico (reparaciones de equipos en general)", 
@@ -1208,6 +1259,8 @@ def generar_codigo_categoria(data):
                 return f"G/{codigo_motivo}"
             else:
                 return codigo_motivo
+        elif equipo_propiedad == "Alquilado":
+            return f"A/{codigo_motivo}"
     
     return "N/A"
 
@@ -1237,6 +1290,19 @@ def insertar_solicitud(data, pdf_url=None):
         nombre_apellido_paciente = data.get('nombre_apellido_paciente', None)
         telefono_paciente = data.get('telefono_paciente', None)
         equipo_origen = data.get('equipo_origen', None)
+        fecha_entrega = data.get('fecha_entrega', None)
+        obra_social = data.get('obra_social', None)
+        quien_entrego_raw = data.get('quien_entrego', '')
+        obra_social = data.get('obra_social', '')
+
+        if quien_entrego_raw and obra_social:
+            quien_entrego = f"{quien_entrego_raw} | {obra_social}"
+        elif quien_entrego_raw:
+            quien_entrego = quien_entrego_raw
+        elif obra_social:
+            quien_entrego = obra_social
+        else:
+            quien_entrego = None
         
         # Para Colaborador (ya existen en tu BD: solicitante, nivel_urgencia, equipo_corresponde_a)
         solicitante = data.get('solicitante', None)
@@ -1342,18 +1408,19 @@ def insertar_solicitud(data, pdf_url=None):
         # Insertar en la tabla solicitudes
         cursor.execute("""
             INSERT INTO solicitudes (
-                fecha_solicitud, email_solicitante, quien_completa,
-                area_solicitante, solicitante, nivel_urgencia,
-                logistica_cargo, equipo_corresponde_a, equipo_propiedad,
-                nombre_fantasia, razon_social, cuit, contacto_nombre, contacto_telefono,
-                comercial_syemed, contacto_tecnico,
-                nombre_apellido_paciente, telefono_paciente, equipo_origen,
-                motivo_solicitud, detalle_fallo, comentarios_caso,
-                categoria, estado, pdf_url
-            ) VALUES (
+                    fecha_solicitud, email_solicitante, quien_completa,
+                    area_solicitante, solicitante, nivel_urgencia,
+                    logistica_cargo, equipo_corresponde_a, equipo_propiedad,
+                    nombre_fantasia, razon_social, cuit, contacto_nombre, contacto_telefono,
+                    comercial_syemed, contacto_tecnico,
+                    nombre_apellido_paciente, telefono_paciente, equipo_origen,
+                    quien_entrego, fecha_entrega,
+                    motivo_solicitud, detalle_fallo, comentarios_caso,
+                    categoria, estado, pdf_url
+                ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s
             )
             RETURNING id
         """, (
@@ -1376,6 +1443,8 @@ def insertar_solicitud(data, pdf_url=None):
             nombre_apellido_paciente,
             telefono_paciente,
             equipo_origen,
+            quien_entrego,
+            data.get('fecha_entrega', None),
             motivo_solicitud,
             detalle_fallo,
             comentarios_caso,
@@ -2085,10 +2154,11 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
 
 def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
     """
-    Flujo condicional para Paciente/Particular
+    VERSIÓN V14 - Flujo condicional para Paciente/Particular
     
-    Pregunta inicial: El equipo...
-    - Se lo entregaron? -> ¿Quién lo entregó? -> Fecha -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
+    Pregunta inicial: El equipo es...
+    - Alquilado? -> Motivos: ST, Asistencia Técnica, Baja Alquiler, Cambio Alquiler, Cambio por falla crítica
+    - Se lo entregaron? -> ¿Quién lo entregó? + Fecha + Obra Social -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
     - Lo compró de manera directa? -> ¿Está en garantía? (Sí, No, No lo sé)
         - Si Sí -> Cargar factura -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
         - Si No o No lo sé -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
@@ -2096,23 +2166,48 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
     
     st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
     
-    # PREGUNTA INICIAL
-    equipo_origen = st.selectbox(
-        "El equipo... *",
-        ["", "Se lo entregaron", "Lo compró de manera directa"],
-        key=f"p_origen_{form_key}"
+    # PREGUNTA INICIAL - MODIFICADA PARA INCLUIR ALQUILADO
+    equipo_propiedad = st.selectbox(
+        "El equipo es... *",
+        ["", "Alquilado", "Se lo entregaron", "Lo compró de manera directa"],
+        key=f"p_propiedad_{form_key}"
     )
     
     # Variables
     quien_entrego = ""
     fecha_entrega = None
+    obra_social = ""
     en_garantia = None
     fecha_compra = None
     factura_garantia = None
     motivo_solicitud = ""
+    motivo_cambio_alquiler = ""
+    
+    # FLUJO: ALQUILADO
+    if equipo_propiedad == "Alquilado":
+        motivo_solicitud = st.selectbox(
+            "Motivo de la solicitud *",
+            ["",
+             "Servicio Técnico (reparaciones de equipos en general)",
+             "Asistencia Técnica",
+             "Baja de Alquiler",
+             "Cambio de Alquiler",
+             "Cambio por falla crítica"],
+            key=f"p_motivo_alquilado_{form_key}"
+        )
+        
+        # Si es Cambio de Alquiler, pedir motivo
+        if motivo_solicitud == "Cambio de Alquiler":
+            st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
+            motivo_cambio_alquiler = st.text_area(
+                "Motivo del cambio de alquiler *",
+                placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
+                key=f"p_motivo_cambio_{form_key}",
+                height=100
+            )
     
     # FLUJO: SE LO ENTREGARON
-    if equipo_origen == "Se lo entregaron":
+    elif equipo_propiedad == "Se lo entregaron":
         quien_entrego = st.text_area(
             "¿Quién lo entregó? *",
             placeholder="Obra Social, Distribuidor, Ortopedia, Plataformas Digitales, etc.",
@@ -2120,14 +2215,22 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
             height=80
         )
         
-        fecha_entrega = st.date_input(
-            "Fecha de entrega *",
-            value=None,
-            max_value=date.today(),
-            format="DD/MM/YYYY",
-            key=f"p_fecha_entrega_{form_key}",
-            help="Fecha aproximada en que recibió el equipo"
-        )
+        col1, col2 = st.columns(2)
+        with col1:
+            fecha_entrega = st.date_input(
+                "Fecha de entrega *",
+                value=None,
+                max_value=date.today(),
+                format="DD/MM/YYYY",
+                key=f"p_fecha_entrega_{form_key}",
+                help="Fecha aproximada en que recibió el equipo"
+            )
+        with col2:
+            obra_social = st.text_input(
+                "Nombre de Obra Social (si aplica)",
+                placeholder="Ej: OSDE, Swiss Medical, etc.",
+                key=f"p_obra_social_{form_key}"
+            )
         
         # Habilitar motivo
         motivo_solicitud = st.selectbox(
@@ -2140,7 +2243,7 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
         )
     
     # FLUJO: LO COMPRÓ DE MANERA DIRECTA
-    elif equipo_origen == "Lo compró de manera directa":
+    elif equipo_propiedad == "Lo compró de manera directa":
         en_garantia = st.selectbox(
             "¿Está en garantía? *",
             ["", "Sí", "No", "No lo sé"],
@@ -2191,13 +2294,16 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
         motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
     
     return {
-        'equipo_origen': equipo_origen,
+        'equipo_propiedad': equipo_propiedad if equipo_propiedad == "Alquilado" else None,
+        'equipo_origen': equipo_propiedad if equipo_propiedad != "Alquilado" else None,
         'quien_entrego': quien_entrego,
         'fecha_entrega': fecha_entrega,
+        'obra_social': obra_social,
         'en_garantia': en_garantia,
         'fecha_compra': fecha_compra,
         'factura_garantia': factura_garantia,
-        'motivo_solicitud': motivo_solicitud
+        'motivo_solicitud': motivo_solicitud,
+        'motivo_cambio_alquiler': motivo_cambio_alquiler
     }
 
 
@@ -2419,8 +2525,18 @@ def main():
         if motivo in ["Servicio Técnico (reparaciones de equipos en general)", 
                       "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
                       "Cambio por falla de funcionamiento crítica"]:
-            st.markdown('<div class="section-header"><h2>Detalles del Servicio Técnico</h2></div>', unsafe_allow_html=True)
             
+            # Determinar título dinámico según motivo
+            if motivo == "Servicio Técnico (reparaciones de equipos en general)":
+                titulo_seccion = "Detalles del Servicio Técnico"
+            elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+                titulo_seccion = "Detalles de Asistencia Técnica"
+            elif motivo == "Cambio por falla de funcionamiento crítica":
+                titulo_seccion = "Detalles de Cambio por Falla Crítica"
+            else:
+                titulo_seccion = "Detalles del Servicio Técnico"
+
+            st.markdown(f'<div class="section-header"><h2>{titulo_seccion}</h2></div>', unsafe_allow_html=True)
             # Inicializar variables
             fallas_seleccionadas = []
             detalle_fallo = ""
@@ -2518,11 +2634,11 @@ def main():
                 Una falla crítica es aquella que impide el uso del equipo de forma segura o efectiva, requiriendo su reemplazo inmediato.
                 
                 **Ejemplos:**                         
-                -El equipo no enciende.
-                -Hay riesgo eléctrico, fuego, humo, olor a quemado.
-                -El equipo se apaga solo o falla en medio de un uso clínico.
-                -El equipo muestra valores erráticos que pueden poner en riesgo al paciente.
-                -La falla impide totalmente utilizarlo para su función principal.
+                -El equipo no enciende.      
+                -Hay riesgo eléctrico, fuego, humo, olor a quemado.    
+                -El equipo se apaga solo o falla en medio de un uso clínico.                           
+                -El equipo muestra valores erráticos que pueden poner en riesgo al paciente.                           
+                -La falla impide totalmente utilizarlo para su función principal.                           
                 -El problema compromete la seguridad (descargas, piezas sueltas, sobrecalentamiento).
                 """)
                 
