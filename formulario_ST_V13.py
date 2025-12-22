@@ -443,8 +443,12 @@ def validar_campos_obligatorios(data):
                 errores.append("Nombre y Apellido (Paciente) es obligatorio")
             if not data.get('telefono_paciente'):
                 errores.append("Teléfono (Paciente) es obligatorio")
-            if not data.get('equipo_origen'):
-                errores.append("Origen del equipo (Paciente) es obligatorio")
+            if st.session_state.get('tipo_usuario') == "Paciente":
+                if not data.get('equipo_origen'):
+                    errores.append("Origen del equipo (Paciente) es obligatorio")
+            elif st.session_state.get('tipo_usuario') == "Colaborador de Syemed":
+                if not data.get('origen_equipo_colaborador'):
+                    errores.append("Origen del equipo es obligatorio")
             if not data.get('motivo_solicitud'):
                 errores.append("Motivo de la solicitud (Paciente) es obligatorio")
     
@@ -1221,9 +1225,11 @@ def generar_codigo_categoria(data):
         return "A/CA"
     
     # Para Servicio Técnico, Asistencia Técnica (Post Venta), Cambio por falla crítica
+    # IMPORTANTE: Manejar AMBAS versiones del texto (corta y larga)
     if motivo == "Servicio Técnico (reparaciones de equipos en general)":
         codigo_motivo = "ST/R"
-    elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+    elif motivo in ["Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+                    "Asistencia Técnica"]:
         codigo_motivo = "AT"
     elif motivo == "Cambio por falla de funcionamiento crítica":
         codigo_motivo = "FC"
@@ -3067,7 +3073,7 @@ def mostrar_seccion_equipos(data, contexto="general"):
     if permite_multiples:
         modo_carga = st.radio(
             "¿Cómo desea cargar los equipos?",
-            ["Equipos individuales (diferentes características)", "Múltiples equipos similares (mismo tipo, marca, modelo)"],
+            ["Equipos individuales (diferentes características)", "Múltiples equipos similares (mismo tipo, marca, modelo)", "Solo cantidad de equipos (sin especificar detalles)"],
             index=0,
             key=f"modo_carga_{contexto}_{form_key}"
         )
