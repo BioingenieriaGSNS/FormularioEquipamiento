@@ -3073,7 +3073,7 @@ def mostrar_seccion_equipos(data, contexto="general"):
     if permite_multiples:
         modo_carga = st.radio(
             "¿Cómo desea cargar los equipos?",
-            ["Equipos individuales (diferentes características)", "Múltiples equipos similares (mismo tipo, marca, modelo)", "Solo cantidad de equipos (sin especificar detalles)"],
+            ["Equipos individuales (diferentes características)", "Múltiples equipos (por grupos)"],
             index=0,
             key=f"modo_carga_{contexto}_{form_key}"
         )
@@ -3138,10 +3138,8 @@ def mostrar_seccion_equipos(data, contexto="general"):
                         else:
                             st.warning(f"⚠️ Archivo '{archivo.name}' no tiene una extensión válida")
                 if fotos_equipo:
-                    st.info(f"📎 {len(fotos_equipo)} archivo(s) para este equipo")
+                    st.info(f"🔎 {len(fotos_equipo)} archivo(s) para este equipo")
 
-            # ==============================================================
-            
             equipos.append({
                 'tipo_equipo': tipo_equipo,
                 'marca': marca_equipo,
@@ -3149,108 +3147,179 @@ def mostrar_seccion_equipos(data, contexto="general"):
                 'numero_serie': numero_serie,
                 'en_garantia': en_garantia == "Sí",
                 'fecha_compra': fecha_compra,
-                'fotos_fallas': fotos_equipo  # ← NUEVO
+                'fotos_fallas': fotos_equipo
             })
             
             st.markdown('</div>', unsafe_allow_html=True)
     
-    else:
-        # Modo múltiples equipos similares
-        st.markdown('<div class="equipment-section"><h3>Información Común de los Equipos</h3>', unsafe_allow_html=True)
+    else:  # modo_carga == "Múltiples equipos (por grupos)"
+        st.markdown('<div class="equipment-section"><h3>Grupos de Equipos</h3>', unsafe_allow_html=True)
         
-        # Mensaje informativo sobre fotos/videos deshabilitados
-        motivo_solicitud = data.get('motivo_solicitud', '')
-        if motivo_solicitud in ["Baja de Alquiler", "Cambio de Alquiler", "Equipo de Stock", "Baja de demo"]:
-            st.info("ℹ️ Al cargar múltiples equipos a la vez, puede listar todos los números de serie con saltos de línea a o comas.")
+        st.info("ℹ️ Puede agregar grupos de equipos. Por ejemplo: 5 respiradores Mindray, 3 monitores Philips, etc. Solo la cantidad es obligatoria.")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            tipo_equipo_comun = st.selectbox("Tipo de Equipo *", TIPOS_EQUIPO, key=f"tipo_comun_{contexto}_{form_key}")
-            modelo_equipo_comun = st.selectbox("Modelo de Equipo *", MODELOS_EQUIPO, key=f"modelo_comun_{contexto}_{form_key}")
+        # Inicializar grupos en session_state si no existe
+        if f'grupos_equipos_{contexto}_{form_key}' not in st.session_state:
+            st.session_state[f'grupos_equipos_{contexto}_{form_key}'] = [{}]
         
-        with col2:
-            marca_equipo_comun = st.selectbox("Marca de Equipo *", MARCAS_EQUIPO, key=f"marca_comun_{contexto}_{form_key}")
+        grupos = st.session_state[f'grupos_equipos_{contexto}_{form_key}']
+        
+        # Mostrar cada grupo
+        for idx, grupo in enumerate(grupos):
+            st.markdown(f'<div class="equipment-section"><h4>Grupo {idx+1}</h4>', unsafe_allow_html=True)
             
-            # CAMBIO: Obtener garantía desde Información del Equipo (data)
-            en_garantia_global = data.get('en_garantia', None)
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                cantidad = st.number_input(
+                    f"Cantidad de equipos *",
+                    min_value=1,
+                    max_value=500,
+                    value=grupo.get('cantidad', 1),
+                    key=f"cantidad_grupo_{contexto}_{idx}_{form_key}"
+                )
+            with col2:
+                if len(grupos) > 1:
+                    if st.button("🗑️ Eliminar", key=f"del_grupo_{contexto}_{idx}_{form_key}", type="secondary"):
+                        grupos.pop(idx)
+                        st.rerun()
             
-            if en_garantia_global == "Sí":
-                en_garantia_comun = "Sí"
-            else:
-                en_garantia_comun = "No"
-        
-        # La fecha de compra y factura se cargan en "Información del Equipo", no aquí
-        fecha_compra_comun = data.get('fecha_compra', None)
-        factura_comun = None  # Ya no se carga aquí
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Números de serie
-        st.markdown('<div class="equipment-section"><h3>Números de Serie</h3>', unsafe_allow_html=True)
-        
-        metodo_serie = st.radio(
-            "¿Cómo desea ingresar los números de serie?",
-            ["Uno por uno", "Lista separada por comas/saltos de línea"],
-            key=f"metodo_serie_{contexto}_{form_key}"
-        )
-        
-        numeros_serie = []
-        
-        if metodo_serie == "Uno por uno":
-            num_series = st.number_input("¿Cuántos números de serie?", min_value=1, max_value=100, value=1, key=f"num_series_{contexto}_{form_key}")
+            col1, col2 = st.columns(2)
+            with col1:
+                tipo = st.selectbox(
+                    "Tipo de Equipo (opcional)",
+                    TIPOS_EQUIPO,
+                    index=TIPOS_EQUIPO.index(grupo.get('tipo', 'Seleccionar tipo...')) if grupo.get('tipo') in TIPOS_EQUIPO else 0,
+                    key=f"tipo_grupo_{contexto}_{idx}_{form_key}"
+                )
+                marca = st.selectbox(
+                    "Marca (opcional)",
+                    MARCAS_EQUIPO,
+                    index=MARCAS_EQUIPO.index(grupo.get('marca', 'Seleccionar marca...')) if grupo.get('marca') in MARCAS_EQUIPO else 0,
+                    key=f"marca_grupo_{contexto}_{idx}_{form_key}"
+                )
             
-            for i in range(num_series):
-                serie = st.text_input(f"Número de Serie {i+1} *", key=f"serie_multiple_{contexto}_{i}_{form_key}")
-                if serie.strip():
-                    numeros_serie.append(serie.strip())
-        
-        else:
-            series_texto = st.text_area(
-                "Ingrese todos los números de serie separados por comas o saltos de línea *",
-                height=150,
-                placeholder="Ejemplo:\nSYE001\nSYE002, SYE003\nSYE004",
-                key=f"series_masivo_{contexto}_{form_key}"
-            )
-            
-            if series_texto:
-                import re
-                numeros_serie = [
-                    serie.strip() 
-                    for serie in re.split(r'[,;\n\r]+', series_texto) 
-                    if serie.strip()
-                ]
+            with col2:
+                modelo = st.selectbox(
+                    "Modelo (opcional)",
+                    MODELOS_EQUIPO,
+                    index=MODELOS_EQUIPO.index(grupo.get('modelo', 'Seleccionar modelo...')) if grupo.get('modelo') in MODELOS_EQUIPO else 0,
+                    key=f"modelo_grupo_{contexto}_{idx}_{form_key}"
+                )
                 
-                if numeros_serie:
-                    st.info(f"Se detectaron {len(numeros_serie)} números de serie:")
-                    num_cols = min(3, len(numeros_serie))
-                    cols = st.columns(num_cols)
-                    
-                    for i, serie in enumerate(numeros_serie[:15]):
-                        with cols[i % num_cols]:
-                            st.text(f"• {serie}")
-                    
-                    if len(numeros_serie) > 15:
-                        st.text(f"... y {len(numeros_serie) - 15} más")
+                # Opción para números de serie
+                usar_ns = st.checkbox(
+                    "Especificar números de serie",
+                    value=grupo.get('usar_ns', False),
+                    key=f"usar_ns_grupo_{contexto}_{idx}_{form_key}"
+                )
+            
+            # Si quiere especificar números de serie
+            numeros_serie_grupo = []
+            ns_texto = ""
+            if usar_ns:
+                st.markdown("**Números de Serie (opcional)**")
+                metodo_ns = st.radio(
+                    "Método de ingreso:",
+                    ["Uno por uno", "Lista (comas/saltos de línea)"],
+                    key=f"metodo_ns_grupo_{contexto}_{idx}_{form_key}",
+                    horizontal=True
+                )
+                
+                if metodo_ns == "Uno por uno":
+                    for i in range(cantidad):
+                        ns = st.text_input(
+                            f"N° Serie {i+1} (opcional)",
+                            value=grupo.get('numeros_serie', [{}])[i].get('valor', '') if i < len(grupo.get('numeros_serie', [])) else '',
+                            key=f"ns_individual_grupo_{contexto}_{idx}_{i}_{form_key}"
+                        )
+                        if ns.strip():
+                            numeros_serie_grupo.append(ns.strip())
+                else:
+                    ns_texto = st.text_area(
+                        f"Ingrese hasta {cantidad} números de serie (uno por línea o separados por comas)",
+                        value=grupo.get('ns_texto', ''),
+                        height=100,
+                        placeholder="SYE001\nSYE002, SYE003",
+                        key=f"ns_masivo_grupo_{contexto}_{idx}_{form_key}"
+                    )
+                    if ns_texto:
+                        import re
+                        numeros_serie_grupo = [
+                            ns.strip() 
+                            for ns in re.split(r'[,;\n\r]+', ns_texto) 
+                            if ns.strip()
+                        ][:cantidad]  # Limitar a la cantidad especificada
+            
+            # Actualizar grupo en session_state
+            grupos[idx] = {
+                'cantidad': cantidad,
+                'tipo': tipo,
+                'marca': marca,
+                'modelo': modelo,
+                'usar_ns': usar_ns,
+                'numeros_serie': numeros_serie_grupo,
+                'ns_texto': ns_texto if usar_ns and metodo_ns == "Lista (comas/saltos de línea)" else ''
+            }
+            
+            # Mostrar resumen del grupo
+            tipo_texto = tipo if tipo != "Seleccionar tipo..." else "Sin especificar"
+            marca_texto = marca if marca != "Seleccionar marca..." else "Sin especificar"
+            modelo_texto = modelo if modelo != "Seleccionar modelo..." else "Sin especificar"
+            
+            st.caption(f"📦 {cantidad} equipo(s) - {tipo_texto} | {marca_texto} | {modelo_texto}")
+            if numeros_serie_grupo:
+                st.caption(f"🔢 {len(numeros_serie_grupo)} número(s) de serie especificado(s)")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
         
-        # Crear equipos
-        for numero_serie in numeros_serie:
-            if numero_serie:
-                equipos.append({
-                    'tipo_equipo': tipo_equipo_comun,
-                    'marca': marca_equipo_comun,
-                    'modelo': modelo_equipo_comun,
-                    'numero_serie': numero_serie,
-                    'en_garantia': en_garantia_comun == "Sí",
-                    'fecha_compra': fecha_compra_comun
-                })
+        # Botón para agregar otro grupo
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("➕ Agregar otro grupo de equipos", key=f"add_grupo_{contexto}_{form_key}", type="secondary", use_container_width=True):
+                grupos.append({})
+                st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Crear equipos desde los grupos
+        total_equipos = 0
+        for grupo in grupos:
+            cantidad = grupo.get('cantidad', 1)
+            tipo_final = grupo.get('tipo', 'Seleccionar tipo...')
+            if tipo_final == "Seleccionar tipo...":
+                tipo_final = "Sin especificar"
+            
+            marca_final = grupo.get('marca', 'Seleccionar marca...')
+            if marca_final == "Seleccionar marca...":
+                marca_final = "Sin especificar"
+            
+            modelo_final = grupo.get('modelo', 'Seleccionar modelo...')
+            if modelo_final == "Seleccionar modelo...":
+                modelo_final = "Sin especificar"
+            
+            numeros_serie = grupo.get('numeros_serie', [])
+            
+            for i in range(cantidad):
+                # Si hay número de serie específico, usarlo; sino generar uno temporal
+                if i < len(numeros_serie) and numeros_serie[i]:
+                    ns = numeros_serie[i]
+                else:
+                    ns = f"PENDIENTE-{total_equipos + 1}"
+                
+                equipos.append({
+                    'tipo_equipo': tipo_final,
+                    'marca': marca_final,
+                    'modelo': modelo_final,
+                    'numero_serie': ns,
+                    'en_garantia': False,
+                    'fecha_compra': None
+                })
+                total_equipos += 1
         
         if equipos:
-            st.success(f"✅ Total de equipos que se registrarán: **{len(equipos)}**")
+            st.success(f"✅ Total de equipos que se registrarán: **{len(equipos)}** (distribuidos en {len(grupos)} grupo(s))")
     
     data['equipos'] = equipos
-
+    
 def mostrar_seccion_paciente(data, es_directo=False):
     """VERSIÓN NUEVA - Reemplaza la función existente"""
     st.markdown(f'<div class="section-header"><h2>Paciente/Particular</h2></div>', unsafe_allow_html=True)
