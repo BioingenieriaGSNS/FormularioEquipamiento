@@ -2528,7 +2528,7 @@ def main():
             )
             
             equipo_corresponde_a = st.selectbox(
-                "El equipo corresponde a: *", 
+                "El equipo está ubicado en: *", 
                 ["", "Paciente/Particular", "Distribuidor", "Institución", "Equipo de Stock", "Baja de demo"],
                 key=f"equipo_corresponde_{st.session_state.form_key}"
             )
