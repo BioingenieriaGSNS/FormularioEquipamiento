@@ -11,14 +11,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ============================================================================
-# FUNCIÃ“N HELPER PARA FECHA/HORA DE BUENOS AIRES
+# FUNCIÓN HELPER PARA FECHA/HORA DE BUENOS AIRES
 # ============================================================================
 def ahora_buenos_aires():
     """Retorna la fecha/hora actual en zona horaria de Buenos Aires (Argentina)
-    Sin informaciÃ³n de timezone para compatibilidad con TIMESTAMP en PostgreSQL"""
+    Sin información de timezone para compatibilidad con TIMESTAMP en PostgreSQL"""
     return datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).replace(tzinfo=None)
 
-# Importar mÃ³dulos necesarios al inicio
+# Importar módulos necesarios al inicio
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
@@ -50,7 +50,7 @@ def lazy_import_reportlab():
 
 
 # ============================================================================
-# OPTIMIZACIÃ“N CRÃTICA PARA STREAMLIT CLOUD
+# OPTIMIZACIÓN CRÍTICA PARA STREAMLIT CLOUD
 # ============================================================================
 
 @st.cache_resource(ttl=3600)  # Cache por 1 hora
@@ -82,7 +82,7 @@ init_cloudinary()
 
 @st.cache_data(ttl=600)  # Cache 10 minutos
 def get_opciones_formulario():
-    """Cachear listas estÃ¡ticas"""
+    """Cachear listas estáticas"""
     return {
         'tipos': TIPOS_EQUIPO,
         'marcas': MARCAS_EQUIPO,
@@ -93,25 +93,25 @@ def get_opciones_formulario():
     }
 
 def validar_solo_numeros(texto):
-    """Filtra el texto para que solo contenga nÃºmeros"""
+    """Filtra el texto para que solo contenga números"""
     if not texto:
         return ""
     return ''.join(filter(str.isdigit, texto))
 
 # ============================================================================
-# CONFIGURACIÃ“N DE SEGURIDAD
+# CONFIGURACIÓN DE SEGURIDAD
 # ============================================================================
 
 # Rate Limiting
-MAX_SOLICITUDES_POR_HORA = 5  # MÃ¡ximo 5 solicitudes por hora por usuario
+MAX_SOLICITUDES_POR_HORA = 5  # Máximo 5 solicitudes por hora por usuario
 VENTANA_RATE_LIMIT_MINUTOS = 60
 
-# TamaÃ±os de archivo
+# Tamaños de archivo
 TAMANO_MAX_IMAGEN_MB = 10
 TAMANO_MAX_VIDEO_MB = 50
 TAMANO_MAX_DOCUMENTO_MB = 5
 
-# LÃ­mites de texto
+# Límites de texto
 MAX_LENGTH_TEXTO_CORTO = 255
 MAX_LENGTH_TEXTO_LARGO = 2000
 
@@ -127,21 +127,21 @@ try:
     MAGIC_DISPONIBLE = True
 except ImportError:
     MAGIC_DISPONIBLE = False
-    print("âš ï¸ python-magic no instalado. ValidaciÃ³n de MIME type deshabilitada.")
+    print("⚠️ python-magic no instalado. Validación de MIME type deshabilitada.")
 
 
 
 st.set_page_config(
-    page_title="Solicitud de Servicio TÃ©cnico - Syemed",
+    page_title="Solicitud de Servicio Técnico - Syemed",
     page_icon="https://res.cloudinary.com/dfxjqvan0/image/upload/v1762455374/LOGO_MUX-removebg-preview_ms8w9o.png",  
     layout="wide"
 )
 
-# ConfiguraciÃ³n de base de datos
+# Configuración de base de datos
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 if not DATABASE_URL:
-    st.error("âŒ Error: DATABASE_URL no configurada")
+    st.error("❌ Error: DATABASE_URL no configurada")
     st.stop()
 
 def subir_archivo_cloudinary(archivo, carpeta="solicitudes_st"):
@@ -150,15 +150,15 @@ def subir_archivo_cloudinary(archivo, carpeta="solicitudes_st"):
     
     Args:
         archivo: El archivo subido por Streamlit (UploadedFile)
-        carpeta: Carpeta en Cloudinary donde se guardarÃ¡
+        carpeta: Carpeta en Cloudinary donde se guardará
     
     Returns:
         tuple: (exito: bool, url_o_mensaje: str)
     """
     try:
-        # Verificar configuraciÃ³n
+        # Verificar configuración
         if not cloudinary.config().cloud_name:
-            return False, "Cloudinary no estÃ¡ configurado. Verifica las variables de entorno."
+            return False, "Cloudinary no está configurado. Verifica las variables de entorno."
         
         timestamp = ahora_buenos_aires().strftime("%Y%m%d_%H%M%S")
         # Sanitizar nombre: quitar espacios, &, y caracteres especiales
@@ -168,14 +168,14 @@ def subir_archivo_cloudinary(archivo, carpeta="solicitudes_st"):
         # Determinar el tipo de archivo y resource_type
         extension = archivo.name.lower().split('.')[-1]
         if extension == 'pdf':
-            resource_type = "raw"  # âš ï¸ CRÃTICO para PDFs
+            resource_type = "raw"  # ⚠️ CRÍTICO para PDFs
         elif extension in ['mp4', 'mov', 'avi', 'mkv', 'webm']:
             resource_type = "video"
         else:
             resource_type = "image"
         
         # Debug: mostrar info
-        #st.info(f"ðŸ”„ Subiendo: {archivo.name} ({archivo.size} bytes)")
+        #st.info(f"🔄 Subiendo: {archivo.name} ({archivo.size} bytes)")
         
         resultado = cloudinary.uploader.upload(
             archivo,
@@ -186,12 +186,12 @@ def subir_archivo_cloudinary(archivo, carpeta="solicitudes_st"):
             tags=["solicitud_st", timestamp]
         )
         
-        #st.success(f"âœ… Subido a Cloudinary: {resultado['secure_url'][:50]}...")
+        #st.success(f"✅ Subido a Cloudinary: {resultado['secure_url'][:50]}...")
         return True, resultado['secure_url']
         
     except Exception as e:
         error_msg = f"Error al subir archivo: {str(e)}"
-        st.error(f"âŒ {error_msg}")
+        st.error(f"❌ {error_msg}")
         return False, error_msg
 
 def subir_pdf_bytes_cloudinary(pdf_bytes, nombre_archivo, carpeta="solicitudes_st/pdfs"):
@@ -200,27 +200,27 @@ def subir_pdf_bytes_cloudinary(pdf_bytes, nombre_archivo, carpeta="solicitudes_s
     
     Args:
         pdf_bytes: El PDF en formato bytes
-        nombre_archivo: Nombre para el archivo (sin extensiÃ³n)
+        nombre_archivo: Nombre para el archivo (sin extensión)
         carpeta: Carpeta en Cloudinary
     
     Returns:
         tuple: (exito: bool, url_o_mensaje: str)
     """
     try:
-        # Verificar configuraciÃ³n
+        # Verificar configuración
         if not cloudinary.config().cloud_name:
-            return False, "Cloudinary no estÃ¡ configurado. Verifica las variables de entorno."
+            return False, "Cloudinary no está configurado. Verifica las variables de entorno."
         
         # Crear buffer de bytes y posicionarlo al inicio
         pdf_buffer = io.BytesIO(pdf_bytes)
-        pdf_buffer.seek(0)  # â† CRÃTICO: Asegurar que el buffer estÃ© al inicio
+        pdf_buffer.seek(0)  # ← CRÍTICO: Asegurar que el buffer esté al inicio
         
         # Subir a Cloudinary
         resultado = cloudinary.uploader.upload(
             pdf_buffer,
             folder=carpeta,
             public_id=nombre_archivo,
-            resource_type="raw",  # CRÃTICO para PDFs
+            resource_type="raw",  # CRÍTICO para PDFs
             format="pdf",
             overwrite=True,
             tags=["solicitud_pdf", ahora_buenos_aires().strftime("%Y%m%d")]
@@ -239,7 +239,7 @@ def subir_pdf_bytes_cloudinary(pdf_bytes, nombre_archivo, carpeta="solicitudes_s
         return False, error_msg
     
 def subir_multiples_archivos_cloudinary(archivos, carpeta="solicitudes_st"):
-    """Sube mÃºltiples archivos a Cloudinary"""
+    """Sube múltiples archivos a Cloudinary"""
     urls = []
     errores = []
     
@@ -297,21 +297,21 @@ st.markdown("""
 TIPOS_EQUIPO = [
     "Seleccionar tipo...",
     "Analizador de gases", "Asistente de Tos", "Aspirador de secreciones", 
-    "Aspirador Manual", "BalÃ³n de ContrapulsaciÃ³n", "Bomba a jeringa", 
-    "Bomba de InfusiÃ³n", "Bomba de PresiÃ³n Negativa", "BPAP", "Cables Varios",
-    "Calentador Humidificador", "CapnÃ³grafo", "Cardiodesfibrilador", 
-    "Concentrador de OxÃ­geno", "Concentrador de OxÃ­geno PortÃ¡til", "CPAP",
-    "DEA", "ElectrocardiÃ³grafo", "Incubadora", "Luminoterapia", "Marcapasos",
-    "Mesa de Anestesia", "Mochila de OxÃ­geno", "MÃ³dulo de CapnografÃ­a",
-    "MÃ³dulo PI", "Monitor MultiparamÃ©trico", "OxÃ­metro de Pulso", "Respirador",
-    "Respirador PortÃ¡til", "Tubo de OxÃ­geno", "Vaporizador de anestesia",
+    "Aspirador Manual", "Balón de Contrapulsación", "Bomba a jeringa", 
+    "Bomba de Infusión", "Bomba de Presión Negativa", "BPAP", "Cables Varios",
+    "Calentador Humidificador", "Capnógrafo", "Cardiodesfibrilador", 
+    "Concentrador de Oxígeno", "Concentrador de Oxígeno Portátil", "CPAP",
+    "DEA", "Electrocardiógrafo", "Incubadora", "Luminoterapia", "Marcapasos",
+    "Mesa de Anestesia", "Mochila de Oxígeno", "Módulo de Capnografía",
+    "Módulo PI", "Monitor Multiparamétrico", "Oxímetro de Pulso", "Respirador",
+    "Respirador Portátil", "Tubo de Oxígeno", "Vaporizador de anestesia",
     "No se/No lo encuentro en la lista"
 ]
 
 MARCAS_EQUIPO = [
     "Seleccionar marca...",
-    "Arrow", "Biocare", "Bistos", "CardiotÃ©cnica", "Cegens", "Comen",
-    "Confort Cough", "Contec", "Covidien", "Daiwha", "Datascope", "DrÃ¤ger",
+    "Arrow", "Biocare", "Bistos", "Cardiotécnica", "Cegens", "Comen",
+    "Confort Cough", "Contec", "Covidien", "Daiwha", "Datascope", "Dräger",
     "Edan", "Enmind", "Fisher&Paykel", "Leex", "Lifotronic", "Long Fian",
     "Lovego", "Marbel", "Massimo", "Maverick", "MDV", "Medix", "Medtronic",
     "Mindray", "MUX", "Nellcor", "Neumovent", "Philips", "Yuwell",
@@ -333,15 +333,15 @@ MODELOS_EQUIPO = [
 ]
 
 COMERCIALES = ["Seleccionar comercial...", "Ariel", "Clara", "Diana", "Francesca", "Isabel", "Lucas", "Miguel"]
-SOLICITANTES_INTERNOS = ["Seleccionar solicitante...", "Ariel",  "Clara", "Daiana", "Diana", "Facundo", "Francesca", "Isabel", "Lucas", "Miguel", "RubÃ©n", "TomÃ¡s"]
+SOLICITANTES_INTERNOS = ["Seleccionar solicitante...", "Ariel",  "Clara", "Daiana", "Diana", "Facundo", "Francesca", "Isabel", "Lucas", "Miguel", "Rubén", "Tomás"]
 
 FALLAS_PROBLEMAS = [
-    "El equipo no muestra ningÃºn signo de falla pero no funciona",
+    "El equipo no muestra ningún signo de falla pero no funciona",
     "El equipo no enciende cuando lo enchufo",
     "El equipo presento una falla en su funcionamiento",
-    "El equipo indica un cÃ³digo de error",
+    "El equipo indica un código de error",
     "El equipo se cayo y no funciona",
-    "El equipo se mojÃ³ y no funciona",
+    "El equipo se mojó y no funciona",
     "El equipo muestra una alarma amarilla/roja",
     "Faltan accesorios",
     "Garantia",
@@ -349,11 +349,11 @@ FALLAS_PROBLEMAS = [
     "No se como funcionan los descartables del equipo"
 ]
 
-# Mapeo de texto de Post Venta a Asistencia TÃ©cnica (para mostrar al usuario)
+# Mapeo de texto de Post Venta a Asistencia Técnica (para mostrar al usuario)
 TEXTO_POST_VENTA_INTERNO = "Servicio Post Venta (para alguno de nuestros productos adquiridos)"
-TEXTO_ASISTENCIA_TECNICA_DISPLAY = "Servicio de Asistencia TÃ©cnica (para nuestros productos adquiridos)"
+TEXTO_ASISTENCIA_TECNICA_DISPLAY = "Servicio de Asistencia Técnica (para nuestros productos adquiridos)"
 
-# FunciÃ³n para convertir texto display a valor interno
+# Función para convertir texto display a valor interno
 def normalizar_motivo_solicitud(motivo_display):
     """Convierte el texto mostrado al usuario al valor interno de BD"""
     if motivo_display == TEXTO_ASISTENCIA_TECNICA_DISPLAY:
@@ -363,7 +363,7 @@ def normalizar_motivo_solicitud(motivo_display):
 def formatear_motivo_solicitud_display(motivo_interno):
     """Convierte el texto interno de BD al texto para mostrar en PDF"""
     if motivo_interno == TEXTO_POST_VENTA_INTERNO:
-        return "Asistencia TÃ©cnica"
+        return "Asistencia Técnica"
     return motivo_interno
 
 def validar_email_formato(email):
@@ -376,30 +376,30 @@ def validar_email_formato(email):
     
     try:
         valid = validate_email(email, check_deliverability=False)
-        return True, "Email vÃ¡lido", valid.normalized
+        return True, "Email válido", valid.normalized
     except EmailNotValidError as e:
         return False, str(e), ""
 
 def validar_campos_obligatorios(data):
     """
-    Valida todos los campos obligatorios segÃºn el tipo de solicitante
+    Valida todos los campos obligatorios según el tipo de solicitante
     Retorna: (es_valido: bool, lista_errores: list)
     """
     errores = []
     
     # Validaciones comunes
     if not data.get('email'):
-        errores.append("El correo electrÃ³nico es obligatorio")
+        errores.append("El correo electrónico es obligatorio")
     
     if not data.get('quien_completa'):
-        errores.append("Debe indicar quiÃ©n completa la solicitud")
+        errores.append("Debe indicar quién completa la solicitud")
     
     quien_completa = data.get('quien_completa', '')
     
     # Validaciones para Colaborador de Syemed
     if quien_completa == "Colaborador de Syemed":
         if not data.get('area_solicitante'):
-            errores.append("Ãrea Solicitante es obligatorio")
+            errores.append("Área Solicitante es obligatorio")
         if not data.get('solicitante') or data.get('solicitante') == "Seleccionar solicitante...":
             errores.append("Solicitante es obligatorio")
         if not data.get('equipo_corresponde_a'):
@@ -407,42 +407,42 @@ def validar_campos_obligatorios(data):
         
         equipo_corresponde_a = data.get('equipo_corresponde_a', '')
         
-        # Validaciones segÃºn a quiÃ©n corresponde el equipo
+        # Validaciones según a quién corresponde el equipo
         if equipo_corresponde_a == "Distribuidor":
             if not data.get('nombre_fantasia'):
-                errores.append("Nombre de FantasÃ­a (Distribuidor) es obligatorio")
+                errores.append("Nombre de Fantasía (Distribuidor) es obligatorio")
             if not data.get('razon_social'):
-                errores.append("RazÃ³n Social (Distribuidor) es obligatorio")
+                errores.append("Razón Social (Distribuidor) es obligatorio")
             if not data.get('cuit'):
                 errores.append("CUIT (Distribuidor) es obligatorio")
             if not data.get('contacto_nombre'):
                 errores.append("Nombre de contacto (Distribuidor) es obligatorio")
             if not data.get('contacto_telefono'):
-                errores.append("TelÃ©fono de contacto (Distribuidor) es obligatorio")
+                errores.append("Teléfono de contacto (Distribuidor) es obligatorio")
             if not data.get('contacto_tecnico'):
-                errores.append("Debe indicar si quiere contacto tÃ©cnico (Distribuidor)")
+                errores.append("Debe indicar si quiere contacto técnico (Distribuidor)")
             if not data.get('motivo_solicitud'):
                 errores.append("Motivo de la solicitud (Distribuidor) es obligatorio")
         
-        elif equipo_corresponde_a == "InstituciÃ³n":
+        elif equipo_corresponde_a == "Institución":
             if not data.get('nombre_fantasia'):
-                errores.append("Nombre del Hospital/ClÃ­nica (InstituciÃ³n) es obligatorio")
+                errores.append("Nombre del Hospital/Clínica (Institución) es obligatorio")
             if not data.get('razon_social'):
-                errores.append("RazÃ³n Social (InstituciÃ³n) es obligatorio")
+                errores.append("Razón Social (Institución) es obligatorio")
             if not data.get('contacto_nombre'):
-                errores.append("Nombre de contacto (InstituciÃ³n) es obligatorio")
+                errores.append("Nombre de contacto (Institución) es obligatorio")
             if not data.get('contacto_telefono'):
-                errores.append("TelÃ©fono de contacto (InstituciÃ³n) es obligatorio")
+                errores.append("Teléfono de contacto (Institución) es obligatorio")
             if not data.get('contacto_tecnico'):
-                errores.append("Debe indicar si quiere contacto tÃ©cnico (InstituciÃ³n)")
+                errores.append("Debe indicar si quiere contacto técnico (Institución)")
             if not data.get('motivo_solicitud'):
-                errores.append("Motivo de la solicitud (InstituciÃ³n) es obligatorio")
+                errores.append("Motivo de la solicitud (Institución) es obligatorio")
         
         elif equipo_corresponde_a == "Paciente/Particular":
             if not data.get('nombre_apellido_paciente'):
                 errores.append("Nombre y Apellido (Paciente) es obligatorio")
             if not data.get('telefono_paciente'):
-                errores.append("TelÃ©fono (Paciente) es obligatorio")
+                errores.append("Teléfono (Paciente) es obligatorio")
             if st.session_state.get('tipo_usuario') == "Paciente":
                 if not data.get('equipo_origen'):
                     errores.append("Origen del equipo (Paciente) es obligatorio")
@@ -455,36 +455,36 @@ def validar_campos_obligatorios(data):
     # Validaciones para Distribuidor directo
     elif quien_completa == "Distribuidor":
         if not data.get('nombre_fantasia'):
-            errores.append("Nombre de FantasÃ­a es obligatorio")
+            errores.append("Nombre de Fantasía es obligatorio")
         if not data.get('razon_social'):
-            errores.append("RazÃ³n Social es obligatorio")
+            errores.append("Razón Social es obligatorio")
         if not data.get('cuit'):
             errores.append("CUIT es obligatorio")
         if not data.get('contacto_nombre'):
             errores.append("Nombre de contacto es obligatorio")
         if not data.get('contacto_telefono'):
-            errores.append("TelÃ©fono de contacto es obligatorio")
+            errores.append("Teléfono de contacto es obligatorio")
         if not data.get('comercial_syemed') or data.get('comercial_syemed') == "Seleccionar comercial...":
             errores.append("Comercial de contacto en Syemed es obligatorio")
         if not data.get('contacto_tecnico'):
-            errores.append("Debe indicar si quiere contacto tÃ©cnico")
+            errores.append("Debe indicar si quiere contacto técnico")
         if not data.get('motivo_solicitud'):
             errores.append("Motivo de la solicitud es obligatorio")
     
-    # Validaciones para InstituciÃ³n directa
-    elif quien_completa == "InstituciÃ³n":
+    # Validaciones para Institución directa
+    elif quien_completa == "Institución":
         if not data.get('nombre_fantasia'):
-            errores.append("Nombre del Hospital/ClÃ­nica/Sanatorio es obligatorio")
+            errores.append("Nombre del Hospital/Clínica/Sanatorio es obligatorio")
         if not data.get('razon_social'):
-            errores.append("RazÃ³n Social es obligatorio")
+            errores.append("Razón Social es obligatorio")
         if not data.get('contacto_nombre'):
             errores.append("Nombre de contacto es obligatorio")
         if not data.get('contacto_telefono'):
-            errores.append("TelÃ©fono de contacto es obligatorio")
+            errores.append("Teléfono de contacto es obligatorio")
         if not data.get('comercial_syemed') or data.get('comercial_syemed') == "Seleccionar comercial...":
             errores.append("Comercial de contacto en Syemed es obligatorio")
         if not data.get('contacto_tecnico'):
-            errores.append("Debe indicar si quiere contacto tÃ©cnico")
+            errores.append("Debe indicar si quiere contacto técnico")
         if not data.get('motivo_solicitud'):
             errores.append("Motivo de la solicitud es obligatorio")
     
@@ -493,11 +493,11 @@ def validar_campos_obligatorios(data):
         if not data.get('nombre_apellido_paciente'):
             errores.append("Nombre y Apellido es obligatorio")
         if not data.get('telefono_paciente'):
-            errores.append("TelÃ©fono de contacto es obligatorio")
+            errores.append("Teléfono de contacto es obligatorio")
         if not data.get('equipo_origen') and not data.get('equipo_propiedad'):
-            errores.append("Debe indicar el tipo de equipo (Alquilado, Se lo entregaron, o Lo comprÃ³)")
+            errores.append("Debe indicar el tipo de equipo (Alquilado, Se lo entregaron, o Lo compró)")
         
-        # Validaciones especÃ­ficas segÃºn el tipo
+        # Validaciones específicas según el tipo
         if data.get('equipo_propiedad') == "Alquilado":
             if not data.get('motivo_solicitud'):
                 errores.append("Motivo de la solicitud es obligatorio")
@@ -506,15 +506,15 @@ def validar_campos_obligatorios(data):
                     errores.append("Motivo del cambio de alquiler es obligatorio")
         elif data.get('equipo_origen') == "Se lo entregaron":
             if not data.get('quien_entrego'):
-                errores.append("'Â¿QuiÃ©n lo entregÃ³?' es obligatorio")
+                errores.append("'¿Quién lo entregó?' es obligatorio")
             if not data.get('fecha_entrega'):
                 errores.append("Fecha de entrega es obligatoria")
             if not data.get('motivo_solicitud'):
                 errores.append("Motivo de la solicitud es obligatorio")
-        elif data.get('equipo_origen') == "Lo comprÃ³ de manera directa":
+        elif data.get('equipo_origen') == "Lo compró de manera directa":
             if not data.get('en_garantia'):
-                errores.append("'Â¿EstÃ¡ en garantÃ­a?' es obligatorio")
-            if data.get('en_garantia') == "SÃ­":
+                errores.append("'¿Está en garantía?' es obligatorio")
+            if data.get('en_garantia') == "Sí":
                 if not data.get('fecha_compra'):
                     errores.append("Fecha de compra es obligatoria")
                 if not data.get('factura_garantia'):
@@ -522,25 +522,25 @@ def validar_campos_obligatorios(data):
             if not data.get('motivo_solicitud'):
                 errores.append("Motivo de la solicitud es obligatorio")
     
-    # Validaciones segÃºn motivo de solicitud
+    # Validaciones según motivo de solicitud
     motivo = data.get('motivo_solicitud', '')
     
     if motivo == "Cambio de Alquiler":
         if not data.get('motivo_cambio_alquiler', '').strip():
             errores.append("Debe especificar el motivo del cambio de alquiler")
     
-    elif motivo == "Cambio por falla de funcionamiento crÃ­tica":
+    elif motivo == "Cambio por falla de funcionamiento crítica":
         if not data.get('detalle_fallo', '').strip():
-            errores.append("Debe describir la falla crÃ­tica que justifica el cambio")
+            errores.append("Debe describir la falla crítica que justifica el cambio")
     
-    elif motivo in ["Servicio TÃ©cnico (reparaciones de equipos en general)", 
+    elif motivo in ["Servicio Técnico (reparaciones de equipos en general)", 
                     "Servicio Post Venta (para alguno de nuestros productos adquiridos)"]:
         fallas = data.get('fallas_problemas', [])
         detalle = data.get('detalle_fallo', '')
         
         if not fallas and not detalle.strip():
-            tipo_req = "fallas" if "TÃ©cnico" in motivo else "consultas"
-            errores.append(f"Debe seleccionar al menos una opciÃ³n o especificar en 'Otros' el motivo de su solicitud")
+            tipo_req = "fallas" if "Técnico" in motivo else "consultas"
+            errores.append(f"Debe seleccionar al menos una opción o especificar en 'Otros' el motivo de su solicitud")
     
     # Validaciones de equipos
     equipos_validos = [
@@ -557,15 +557,15 @@ def validar_campos_obligatorios(data):
             if not equipo.get('modelo') or equipo.get('modelo') == "Seleccionar modelo...":
                 errores.append(f"El modelo del equipo {i} es obligatorio")
             if not equipo.get('numero_serie'):
-                errores.append(f"El nÃºmero de serie del equipo {i} es obligatorio")
+                errores.append(f"El número de serie del equipo {i} es obligatorio")
             #if not equipo.get('en_garantia'):
-                #errores.append(f"Debe indicar si el equipo {i} estÃ¡ en garantÃ­a")
+                #errores.append(f"Debe indicar si el equipo {i} está en garantía")
     
     return len(errores) == 0, errores
 
 def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     """
-    Genera un PDF con el resumen completo de la solicitud organizado por categorÃ­as
+    Genera un PDF con el resumen completo de la solicitud organizado por categorías
     Retorna: bytes del PDF
     """
 
@@ -574,7 +574,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     
     
     buffer = io.BytesIO()
-    # Determinar OST principal para el tÃ­tulo
+    # Determinar OST principal para el título
     ost_principal = equipos_osts[0] if equipos_osts else solicitud_id
     
     doc = SimpleDocTemplate(
@@ -585,8 +585,8 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         topMargin=72, 
         bottomMargin=18,
         title=f"Solicitud ST - OST #{ost_principal}",  
-        author="Syemed - Asistencia TÃ©cnica y ST",     
-        subject=f"Solicitud de Servicio TÃ©cnico - OST #{ost_principal}"  
+        author="Syemed - Asistencia Técnica y ST",     
+        subject=f"Solicitud de Servicio Técnico - OST #{ost_principal}"  
     )
     
     elementos = []
@@ -609,26 +609,26 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     )
     estilo_normal = estilos['Normal']
     
-    # TÃ­tulo
-    elementos.append(Paragraph(f"Solicitud de Servicio TÃ©cnico - Caso #{solicitud_id}", estilo_titulo))
+    # Título
+    elementos.append(Paragraph(f"Solicitud de Servicio Técnico - Caso #{solicitud_id}", estilo_titulo))
     elementos.append(Paragraph(f"Fecha: {ahora_buenos_aires().strftime('%d/%m/%Y %H:%M')}", estilo_normal))
     elementos.append(Spacer(1, 0.3*inch))
     
     # ====================================================================================
-    # SECCIÃ“N 1: INFORMACIÃ“N SEGÃšN TIPO DE SOLICITANTE
+    # SECCIÓN 1: INFORMACIÓN SEGÚN TIPO DE SOLICITANTE
     # ====================================================================================
     quien_completa = data.get('quien_completa', '')
     
-    elementos.append(Paragraph("INFORMACIÃ“N DE LA SOLICITUD", estilo_subtitulo))
+    elementos.append(Paragraph("INFORMACIÓN DE LA SOLICITUD", estilo_subtitulo))
     
     info_general = [
-        ["Correo electrÃ³nico:", data.get('email', 'N/A')],
+        ["Correo electrónico:", data.get('email', 'N/A')],
         ["Tipo de solicitante:", quien_completa or 'N/A'],
     ]
     
     # ========== COLABORADOR DE SYEMED ==========
     if quien_completa == "Colaborador de Syemed":
-        # Mapear nivel de urgencia numÃ©rico a texto
+        # Mapear nivel de urgencia numérico a texto
         nivel_urgencia_num = data.get('nivel_urgencia', 0)
         if nivel_urgencia_num <= 1:
             nivel_urgencia_texto = f"Bajo ({nivel_urgencia_num})"
@@ -638,10 +638,10 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             nivel_urgencia_texto = f"Alto ({nivel_urgencia_num})"
         
         info_general.extend([
-            ["Ãrea solicitante:", data.get('area_solicitante', 'N/A')],
+            ["Área solicitante:", data.get('area_solicitante', 'N/A')],
             ["Solicitante:", data.get('solicitante', 'N/A')],
             ["Nivel de Urgencia:", nivel_urgencia_texto],
-            ["LogÃ­stica a cargo:", data.get('logistica_cargo', 'N/A')],
+            ["Logística a cargo:", data.get('logistica_cargo', 'N/A')],
             ["Comentarios del caso:", data.get('comentarios_caso', 'N/A')],
         ])
         
@@ -659,22 +659,22 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         elementos.append(tabla_info)
         elementos.append(Spacer(1, 0.2*inch))
         
-        # SubsecciÃ³n: El equipo corresponde a...
+        # Subsección: El equipo corresponde a...
         equipo_corresponde_a = data.get('equipo_corresponde_a', '')
         elementos.append(Paragraph(f"<b>El equipo corresponde a: {equipo_corresponde_a}</b>", estilo_normal))
         elementos.append(Spacer(1, 0.1*inch))
         
         info_equipo_corresponde = []
         
-        if equipo_corresponde_a in ["Distribuidor", "InstituciÃ³n"]:
+        if equipo_corresponde_a in ["Distribuidor", "Institución"]:
             info_equipo_corresponde.extend([
-                ["Nombre de fantasÃ­a:", data.get('nombre_fantasia', 'N/A')],
-                ["RazÃ³n social:", data.get('razon_social', 'N/A')],
+                ["Nombre de fantasía:", data.get('nombre_fantasia', 'N/A')],
+                ["Razón social:", data.get('razon_social', 'N/A')],
                 ["CUIT:", data.get('cuit', 'N/A')],
                 ["Nombre contacto:", data.get('contacto_nombre', 'N/A')],
-                ["TelÃ©fono:", data.get('contacto_telefono', 'N/A')],
+                ["Teléfono:", data.get('contacto_telefono', 'N/A')],
                 ["Comercial a cargo:", data.get('comercial_syemed', 'N/A')],
-                ["Â¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
+                ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
                 ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
                 ["Propio o Alquilado:", data.get('equipo_propiedad', 'N/A')],
             ])
@@ -682,11 +682,11 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         elif equipo_corresponde_a == "Paciente/Particular":
             info_equipo_corresponde.extend([
                 ["Nombre y Apellido:", data.get('nombre_apellido_paciente', 'N/A')],
-                ["TelÃ©fono:", data.get('telefono_paciente', 'N/A')],
-                ["DirecciÃ³n:", data.get('direccion_paciente', 'N/A')],
-                ["Â¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
+                ["Teléfono:", data.get('telefono_paciente', 'N/A')],
+                ["Dirección:", data.get('direccion_paciente', 'N/A')],
+                ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
                 ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
-                ["DiagnÃ³stico del Paciente:", data.get('diagnostico_paciente', 'N/A')],
+                ["Diagnóstico del Paciente:", data.get('diagnostico_paciente', 'N/A')],
             ])
         
         if info_equipo_corresponde:
@@ -706,13 +706,13 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     # ========== DISTRIBUIDOR ==========
     elif quien_completa == "Distribuidor":
         info_general.extend([
-            ["Nombre de fantasÃ­a:", data.get('nombre_fantasia', 'N/A')],
-            ["RazÃ³n social:", data.get('razon_social', 'N/A')],
+            ["Nombre de fantasía:", data.get('nombre_fantasia', 'N/A')],
+            ["Razón social:", data.get('razon_social', 'N/A')],
             ["CUIT:", data.get('cuit', 'N/A')],
             ["Nombre contacto:", data.get('contacto_nombre', 'N/A')],
-            ["TelÃ©fono:", data.get('contacto_telefono', 'N/A')],
+            ["Teléfono:", data.get('contacto_telefono', 'N/A')],
             ["Comercial a cargo:", data.get('comercial_syemed', 'N/A')],
-            ["Â¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
+            ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
             ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
             ["Propio o Alquilado:", data.get('equipo_propiedad', 'N/A')],
         ])
@@ -730,16 +730,16 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         ]))
         elementos.append(tabla_info)
     
-    # ========== INSTITUCIÃ“N ==========
-    elif quien_completa == "InstituciÃ³n":
+    # ========== INSTITUCIÓN ==========
+    elif quien_completa == "Institución":
         info_general.extend([
-            ["Nombre de fantasÃ­a:", data.get('nombre_fantasia', 'N/A')],
-            ["RazÃ³n social:", data.get('razon_social', 'N/A')],
+            ["Nombre de fantasía:", data.get('nombre_fantasia', 'N/A')],
+            ["Razón social:", data.get('razon_social', 'N/A')],
             ["CUIT:", data.get('cuit', 'N/A')],
             ["Nombre contacto:", data.get('contacto_nombre', 'N/A')],
-            ["TelÃ©fono:", data.get('contacto_telefono', 'N/A')],
+            ["Teléfono:", data.get('contacto_telefono', 'N/A')],
             ["Comercial a cargo:", data.get('comercial_syemed', 'N/A')],
-            ["Â¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
+            ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
             ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
             ["Propio o Alquilado:", data.get('equipo_propiedad', 'N/A')],
         ])
@@ -761,7 +761,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     elif quien_completa == "Paciente/Particular":
         info_general.extend([
             ["Nombre y Apellido:", data.get('nombre_apellido_paciente', 'N/A')],
-            ["TelÃ©fono:", data.get('telefono_paciente', 'N/A')],
+            ["Teléfono:", data.get('telefono_paciente', 'N/A')],
             ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
         ])
         
@@ -774,12 +774,12 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             if equipo_origen == "Se lo entregaron":
                 info_general.extend([
                     ["Tipo de equipo:", "Se lo entregaron"],
-                    ["QuiÃ©n lo entregÃ³:", data.get('quien_entrego', 'N/A')],
+                    ["Quién lo entregó:", data.get('quien_entrego', 'N/A')],
                     ["Fecha de entrega:", data.get('fecha_entrega', 'N/A')],
                     ["Obra Social:", data.get('obra_social', 'N/A') if data.get('obra_social') else 'N/A']
                 ])
-            elif equipo_origen == "Lo comprÃ³ de manera directa":
-                info_general.append(["Tipo de equipo:", "Lo comprÃ³ de manera directa"])
+            elif equipo_origen == "Lo compró de manera directa":
+                info_general.append(["Tipo de equipo:", "Lo compró de manera directa"])
         
         tabla_info = Table(info_general, colWidths=[2*inch, 4*inch])
         tabla_info.setStyle(TableStyle([
@@ -797,16 +797,16 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     elementos.append(Spacer(1, 0.3*inch))
     
     # ====================================================================================
-    # SECCIÃ“N 2: DETALLES TÃ‰CNICOS
+    # SECCIÓN 2: DETALLES TÉCNICOS
     # ====================================================================================
     motivo_solicitud = data.get('motivo_solicitud', '')
     
-    # Determinar si hay informaciÃ³n tÃ©cnica que mostrar
+    # Determinar si hay información técnica que mostrar
     tiene_info_tecnica = False
     detalle_observacion = ""
     
-    if motivo_solicitud == "Servicio TÃ©cnico (reparaciones de equipos en general)":
-        # Para ST: fallas + detalle + diagnÃ³stico
+    if motivo_solicitud == "Servicio Técnico (reparaciones de equipos en general)":
+        # Para ST: fallas + detalle + diagnóstico
         tiene_info_tecnica = data.get('fallas_problemas') or data.get('detalle_fallo') or data.get('diagnostico_paciente')
         partes = []
         fallas = data.get('fallas_problemas', [])
@@ -817,12 +817,12 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             partes.append(detalle)
         diagnostico = data.get('diagnostico_paciente', '')
         if diagnostico:
-            partes.append(f"DiagnÃ³stico: {diagnostico}")
+            partes.append(f"Diagnóstico: {diagnostico}")
         if partes:
             detalle_observacion = ' | '.join(partes)
     
     elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-        # Para Asistencia TÃ©cnica: consultas + detalle + diagnÃ³stico
+        # Para Asistencia Técnica: consultas + detalle + diagnóstico
         tiene_info_tecnica = data.get('fallas_problemas') or data.get('detalle_fallo') or data.get('diagnostico_paciente')
         partes = []
         fallas = data.get('fallas_problemas', [])
@@ -833,12 +833,12 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             partes.append(detalle)
         diagnostico = data.get('diagnostico_paciente', '')
         if diagnostico:
-            partes.append(f"DiagnÃ³stico: {diagnostico}")
+            partes.append(f"Diagnóstico: {diagnostico}")
         if partes:
             detalle_observacion = ' | '.join(partes)
     
     elif motivo_solicitud == "Baja de Alquiler":
-        # Para Baja de Alquiler: motivo + observaciÃ³n + estado
+        # Para Baja de Alquiler: motivo + observación + estado
         tiene_info_tecnica = data.get('motivo_baja') or data.get('observacion_baja') or data.get('estado_equipo')
         partes = []
         motivo_baja = data.get('motivo_baja', '')
@@ -858,8 +858,8 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         tiene_info_tecnica = data.get('motivo_cambio_alquiler')
         detalle_observacion = data.get('motivo_cambio_alquiler', '')
     
-    elif motivo_solicitud == "Cambio por falla de funcionamiento crÃ­tica":
-        # Para Falla CrÃ­tica: descripciÃ³n + diagnÃ³stico
+    elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
+        # Para Falla Crítica: descripción + diagnóstico
         tiene_info_tecnica = data.get('detalle_fallo') or data.get('diagnostico_paciente')
         partes = []
         detalle = data.get('detalle_fallo', '')
@@ -867,35 +867,35 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             partes.append(detalle)
         diagnostico = data.get('diagnostico_paciente', '')
         if diagnostico:
-            partes.append(f"DiagnÃ³stico: {diagnostico}")
+            partes.append(f"Diagnóstico: {diagnostico}")
         if partes:
             detalle_observacion = ' | '.join(partes)
     
-    # NUEVO: Determinar el tÃ­tulo de la secciÃ³n segÃºn el motivo
-    titulo_seccion_tecnica = "DETALLES TÃ‰CNICOS"
+    # NUEVO: Determinar el título de la sección según el motivo
+    titulo_seccion_tecnica = "DETALLES TÉCNICOS"
     
-    if motivo_solicitud == "Servicio TÃ©cnico (reparaciones de equipos en general)":
-        titulo_seccion_tecnica = "DETALLES DEL SERVICIO TÃ‰CNICO"
+    if motivo_solicitud == "Servicio Técnico (reparaciones de equipos en general)":
+        titulo_seccion_tecnica = "DETALLES DEL SERVICIO TÉCNICO"
     elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-        titulo_seccion_tecnica = "DETALLES DE ASISTENCIA TÃ‰CNICA"
+        titulo_seccion_tecnica = "DETALLES DE ASISTENCIA TÉCNICA"
     elif motivo_solicitud == "Baja de Alquiler":
         titulo_seccion_tecnica = "DETALLES DE BAJA DE ALQUILER"
     elif motivo_solicitud == "Cambio de Alquiler":
         titulo_seccion_tecnica = "DETALLES DE CAMBIO DE ALQUILER"
-    elif motivo_solicitud == "Cambio por falla de funcionamiento crÃ­tica":
-        titulo_seccion_tecnica = "DETALLES DE CAMBIO POR FALLA CRÃTICA"
+    elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
+        titulo_seccion_tecnica = "DETALLES DE CAMBIO POR FALLA CRÍTICA"
     
-    # Mostrar secciÃ³n con tÃ­tulo dinÃ¡mico si hay informaciÃ³n
+    # Mostrar sección con título dinámico si hay información
     if tiene_info_tecnica:
         elementos.append(Paragraph(titulo_seccion_tecnica, estilo_subtitulo))
         
-        # Para ST y Asistencia TÃ©cnica: mostrar fallas seleccionadas
-        if motivo_solicitud in ["Servicio TÃ©cnico (reparaciones de equipos en general)", 
+        # Para ST y Asistencia Técnica: mostrar fallas seleccionadas
+        if motivo_solicitud in ["Servicio Técnico (reparaciones de equipos en general)", 
                                 "Servicio Post Venta (para alguno de nuestros productos adquiridos)"]:
             if data.get('fallas_problemas'):
                 elementos.append(Paragraph("<b>Fallas detectadas seleccionadas:</b>", estilo_normal))
                 for falla in data.get('fallas_problemas', []):
-                    elementos.append(Paragraph(f"â€¢ {falla}", estilo_normal))
+                    elementos.append(Paragraph(f"• {falla}", estilo_normal))
                 elementos.append(Spacer(1, 0.1*inch))
             
             if data.get('detalle_fallo'):
@@ -904,7 +904,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
                 elementos.append(Spacer(1, 0.1*inch))
             
             if data.get('diagnostico_paciente'):
-                elementos.append(Paragraph("<b>DiagnÃ³stico del Paciente:</b>", estilo_normal))
+                elementos.append(Paragraph("<b>Diagnóstico del Paciente:</b>", estilo_normal))
                 elementos.append(Paragraph(data.get('diagnostico_paciente', ''), estilo_normal))
         
         # Para Baja de Alquiler
@@ -913,7 +913,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
                 elementos.append(Paragraph(f"<b>Motivo de baja:</b> {data.get('motivo_baja', '')}", estilo_normal))
                 elementos.append(Spacer(1, 0.05*inch))
             if data.get('observacion_baja'):
-                elementos.append(Paragraph("<b>ObservaciÃ³n:</b>", estilo_normal))
+                elementos.append(Paragraph("<b>Observación:</b>", estilo_normal))
                 elementos.append(Paragraph(data.get('observacion_baja', ''), estilo_normal))
                 elementos.append(Spacer(1, 0.05*inch))
             if data.get('estado_equipo'):
@@ -925,24 +925,24 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
                 elementos.append(Paragraph("<b>Motivo del cambio:</b>", estilo_normal))
                 elementos.append(Paragraph(data.get('motivo_cambio_alquiler', ''), estilo_normal))
         
-        # Para Falla CrÃ­tica
-        elif motivo_solicitud == "Cambio por falla de funcionamiento crÃ­tica":
+        # Para Falla Crítica
+        elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
             if data.get('detalle_fallo'):
-                elementos.append(Paragraph("<b>DescripciÃ³n de la falla crÃ­tica:</b>", estilo_normal))
+                elementos.append(Paragraph("<b>Descripción de la falla crítica:</b>", estilo_normal))
                 elementos.append(Paragraph(data.get('detalle_fallo', ''), estilo_normal))
                 elementos.append(Spacer(1, 0.1*inch))
             if data.get('diagnostico_paciente'):
-                elementos.append(Paragraph("<b>DiagnÃ³stico del Paciente:</b>", estilo_normal))
+                elementos.append(Paragraph("<b>Diagnóstico del Paciente:</b>", estilo_normal))
                 elementos.append(Paragraph(data.get('diagnostico_paciente', ''), estilo_normal))
         
         elementos.append(Spacer(1, 0.3*inch))
     
     # ====================================================================================
-    # SECCIÃ“N 3: EQUIPOS REGISTRADOS
+    # SECCIÓN 3: EQUIPOS REGISTRADOS
     # ====================================================================================
     elementos.append(Paragraph("EQUIPOS REGISTRADOS", estilo_subtitulo))
     
-    equipos_data = [["OST", "Tipo", "Marca", "Modelo", "NÂ° Serie", "GarantÃ­a"]]
+    equipos_data = [["OST", "Tipo", "Marca", "Modelo", "N° Serie", "Garantía"]]
     
     for i, equipo in enumerate(data.get('equipos', []), 1):
         if equipo.get('tipo_equipo') and equipo['tipo_equipo'] != "Seleccionar tipo...":
@@ -955,7 +955,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
                 equipo.get('marca', 'N/A'),
                 equipo.get('modelo', 'N/A'),
                 equipo.get('numero_serie', 'N/A'),
-                "SÃ­" if equipo.get('en_garantia') else "No"
+                "Sí" if equipo.get('en_garantia') else "No"
             ])
     
     tabla_equipos = Table(equipos_data, colWidths=[0.6*inch, 1.5*inch, 1.2*inch, 1.2*inch, 1.2*inch, 0.7*inch])
@@ -984,7 +984,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     return pdf_bytes
 def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data, equipos_osts=None):
     """
-    EnvÃ­a un email con el PDF adjunto usando Gmail
+    Envía un email con el PDF adjunto usando Gmail
     """
     # Obtener credenciales desde variables de entorno
     sender_email = os.getenv('SMTP_EMAIL')
@@ -1000,18 +1000,18 @@ def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data, equipos_os
     try:
         # Crear mensaje
         msg = MIMEMultipart()
-        msg['From'] = f"Post Venta y Servicio TÃ©cnico Syemed <{sender_email}>"
+        msg['From'] = f"Post Venta y Servicio Técnico Syemed <{sender_email}>"
         msg['To'] = destinatario
         
-        # Agregar copia si estÃ¡ configurada
+        # Agregar copia si está configurada
         if email_copia:
             msg['Cc'] = email_copia
         
-        # Generar cÃ³digo de categorÃ­a para el asunto
+        # Generar código de categoría para el asunto
         codigo_categoria = generar_codigo_categoria(data)
         msg['Subject'] = f"{codigo_categoria} Seguimiento Caso #{solicitud_id} - Syemed"
         
-        # Determinar informaciÃ³n del solicitante segÃºn tipo
+        # Determinar información del solicitante según tipo
         quien_completa = data.get('quien_completa', 'N/A')
         info_solicitante = ""
         info_telefono = ""
@@ -1021,57 +1021,57 @@ def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data, equipos_os
             solicitante = data.get('solicitante', 'N/A')
             info_solicitante = f"Colaborador de Syemed: {solicitante}"
             
-            # Determinar informaciÃ³n segÃºn a quiÃ©n corresponde el equipo
+            # Determinar información según a quién corresponde el equipo
             equipo_corresponde_a = data.get('equipo_corresponde_a', '')
             if equipo_corresponde_a == "Distribuidor":
                 nombre = data.get('nombre_fantasia', 'N/A')
                 info_solicitante += f"\n- Cliente (Distribuidor): {nombre}"
                 telefono = data.get('contacto_telefono', '')
                 if telefono:
-                    info_telefono = f"- TelÃ©fono: {telefono}"
+                    info_telefono = f"- Teléfono: {telefono}"
                     
-            elif equipo_corresponde_a == "InstituciÃ³n":
+            elif equipo_corresponde_a == "Institución":
                 nombre = data.get('nombre_fantasia', 'N/A')
-                info_solicitante += f"\n- Cliente (InstituciÃ³n): {nombre}"
+                info_solicitante += f"\n- Cliente (Institución): {nombre}"
                 telefono = data.get('contacto_telefono', '')
                 if telefono:
-                    info_telefono = f"- TelÃ©fono: {telefono}"
+                    info_telefono = f"- Teléfono: {telefono}"
                     
             elif equipo_corresponde_a == "Paciente/Particular":
                 nombre = data.get('nombre_apellido_paciente', 'N/A')
                 info_solicitante += f"\n- Cliente (Paciente): {nombre}"
                 telefono = data.get('telefono_paciente', '')
                 if telefono:
-                    info_telefono = f"- TelÃ©fono: {telefono}"
+                    info_telefono = f"- Teléfono: {telefono}"
         
         elif quien_completa == "Distribuidor":
             nombre = data.get('nombre_fantasia', 'N/A')
             info_solicitante = f"Distribuidor: {nombre}"
             telefono = data.get('contacto_telefono', '')
             if telefono:
-                info_telefono = f"- TelÃ©fono: {telefono}"
+                info_telefono = f"- Teléfono: {telefono}"
                 
-        elif quien_completa == "InstituciÃ³n":
+        elif quien_completa == "Institución":
             nombre = data.get('nombre_fantasia', 'N/A')
-            info_solicitante = f"InstituciÃ³n: {nombre}"
+            info_solicitante = f"Institución: {nombre}"
             telefono = data.get('contacto_telefono', '')
             if telefono:
-                info_telefono = f"- TelÃ©fono: {telefono}"
+                info_telefono = f"- Teléfono: {telefono}"
                 
         elif quien_completa == "Paciente/Particular":
             nombre = data.get('nombre_apellido_paciente', 'N/A')
             info_solicitante = f"Paciente/Particular: {nombre}"
             telefono = data.get('telefono_paciente', '')
             if telefono:
-                info_telefono = f"- TelÃ©fono: {telefono}"
+                info_telefono = f"- Teléfono: {telefono}"
             info_contacto_tecnico = ""
             if data.get('contacto_tecnico'):
-               info_contacto_tecnico = f"- Â¿Quiere que lo contactemos desde el Ã¡rea tÃ©cnica?: {data.get('contacto_tecnico')}"
+               info_contacto_tecnico = f"- ¿Quiere que lo contactemos desde el área técnica?: {data.get('contacto_tecnico')}"
         
         num_equipos = len([eq for eq in data.get('equipos', []) 
                           if eq.get('tipo_equipo') != "Seleccionar tipo..."])
         
-        # Construir informaciÃ³n de OSTs
+        # Construir información de OSTs
         info_osts = ""
         if equipos_osts:
             osts_formateados = ', '.join([f'#{ost}' for ost in equipos_osts])
@@ -1080,10 +1080,10 @@ def enviar_email_con_pdf(destinatario, solicitud_id, pdf_bytes, data, equipos_os
         # Construir cuerpo del email
         body = f"""Estimado/a,
 
-Se ha registrado exitosamente su solicitud de servicio tÃ©cnico.
+Se ha registrado exitosamente su solicitud de servicio técnico.
 
 DETALLES DE LA SOLICITUD:
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - ID de Solicitud: #{solicitud_id}
 {info_osts}- Solicitante: {info_solicitante}
 {info_telefono}
@@ -1091,21 +1091,21 @@ DETALLES DE LA SOLICITUD:
 - Cantidad de equipos: {num_equipos}
 - Fecha: {ahora_buenos_aires().strftime('%d/%m/%Y %H:%M')}
 
-Adjunto encontrarÃ¡ el resumen completo de su solicitud en formato PDF.
+Adjunto encontrará el resumen completo de su solicitud en formato PDF.
 
 Nos pondremos en contacto a la brevedad para coordinar el servicio.
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-HORARIO DE ATENCIÃ“N:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HORARIO DE ATENCIÓN:
 Lunes a Viernes de 8 a 17hs
-TelÃ©fono de urgencias: 11 2373-0278
+Teléfono de urgencias: 11 2373-0278
 
 Saludos cordiales,
-Equipo de Asistencia TÃ©cnica y Servicio TÃ©cnico
+Equipo de Asistencia Técnica y Servicio Técnico
 Syemed
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-Este es un email automÃ¡tico. Por favor no responda a este mensaje.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Este es un email automático. Por favor no responda a este mensaje.
 """
         
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
@@ -1135,7 +1135,7 @@ Este es un email automÃ¡tico. Por favor no responda a este mensaje.
         
               
     except smtplib.SMTPAuthenticationError:
-        return False, "Error de autenticaciÃ³n SMTP. Verifica tus credenciales."
+        return False, "Error de autenticación SMTP. Verifica tus credenciales."
     except smtplib.SMTPException as e:
         return False, f"Error SMTP: {str(e)}"
     except Exception as e:
@@ -1145,13 +1145,13 @@ def conectar_bd():
     """Usa pool de conexiones cacheado"""
     try:
         conn = get_db_pool()
-        # Test si estÃ¡ viva
+        # Test si está viva
         cursor = conn.cursor()
         cursor.execute("SELECT 1")
         cursor.close()
         return conn
     except (psycopg2.OperationalError, psycopg2.InterfaceError):
-        # ConexiÃ³n muerta, limpiar cache y reintentar
+        # Conexión muerta, limpiar cache y reintentar
         st.cache_resource.clear()
         try:
             return get_db_pool()
@@ -1164,57 +1164,57 @@ def conectar_bd():
 
 def generar_codigo_categoria(data):
     """
-    Genera el cÃ³digo de categorÃ­a segÃºn las reglas NUEVAS:
+    Genera el código de categoría según las reglas NUEVAS:
     
     Para opciones especiales:
     * S: Equipo de Stock
     * BD: Baja de Demo
     
-    Para Distribuidor/InstituciÃ³n:
+    Para Distribuidor/Institución:
     Si Alquilado:
-      A/ST/R   -> Servicio TÃ©cnico
-      A/AT     -> Asistencia TÃ©cnica  
+      A/ST/R   -> Servicio Técnico
+      A/AT     -> Asistencia Técnica  
       A/BA     -> Baja de Alquiler
       A/CA     -> Cambio de Alquiler
-      A/FC     -> Cambio por Falla CrÃ­tica
+      A/FC     -> Cambio por Falla Crítica
     
-    Si Propio con GarantÃ­a SÃ­:
-      G/ST/R   -> Servicio TÃ©cnico
-      G/AT     -> Asistencia TÃ©cnica
-      G/FC     -> Cambio por Falla CrÃ­tica
+    Si Propio con Garantía Sí:
+      G/ST/R   -> Servicio Técnico
+      G/AT     -> Asistencia Técnica
+      G/FC     -> Cambio por Falla Crítica
     
-    Si Propio con GarantÃ­a No:
-      ST/R     -> Servicio TÃ©cnico
-      AT       -> Asistencia TÃ©cnica
-      FC       -> Cambio por Falla CrÃ­tica
+    Si Propio con Garantía No:
+      ST/R     -> Servicio Técnico
+      AT       -> Asistencia Técnica
+      FC       -> Cambio por Falla Crítica
     
     Para Paciente/Particular:
     Si se lo entregaron:
-      ST/R     -> Servicio TÃ©cnico
-      AT       -> Asistencia TÃ©cnica
-      FC       -> Cambio por Falla CrÃ­tica
+      ST/R     -> Servicio Técnico
+      AT       -> Asistencia Técnica
+      FC       -> Cambio por Falla Crítica
     
-    Si lo comprÃ³ con GarantÃ­a SÃ­:
-      G/ST/R   -> Servicio TÃ©cnico
-      G/AT     -> Asistencia TÃ©cnica
-      G/FC     -> Cambio por Falla CrÃ­tica
+    Si lo compró con Garantía Sí:
+      G/ST/R   -> Servicio Técnico
+      G/AT     -> Asistencia Técnica
+      G/FC     -> Cambio por Falla Crítica
     """
     motivo = data.get('motivo_solicitud', '')
     equipo_propiedad = data.get('equipo_propiedad', '')
     quien_completa = data.get('quien_completa', '')
     
-    # Determinar si hay equipos en garantÃ­a
+    # Determinar si hay equipos en garantía
     equipos = data.get('equipos', [])
     tiene_garantia = any(equipo.get('en_garantia', False) for equipo in equipos)
     
-    # Obtener el valor de en_garantia desde data (de la secciÃ³n InformaciÃ³n del Equipo)
+    # Obtener el valor de en_garantia desde data (de la sección Información del Equipo)
     en_garantia_data = data.get('en_garantia', None)
-    if en_garantia_data == "SÃ­":
+    if en_garantia_data == "Sí":
         tiene_garantia = True
-    elif en_garantia_data in ["No", "No lo sÃ©"]:
+    elif en_garantia_data in ["No", "No lo sé"]:
         tiene_garantia = False
     
-    # Mapear motivos a cÃ³digos
+    # Mapear motivos a códigos
     if motivo == "Equipo de Stock":
         return "S"
     elif motivo == "Baja de demo":
@@ -1224,20 +1224,18 @@ def generar_codigo_categoria(data):
     elif motivo == "Cambio de Alquiler":
         return "A/CA"
     
-    # Para Servicio TÃ©cnico, Asistencia TÃ©cnica (Post Venta), Cambio por falla crÃ­tica
-    # IMPORTANTE: Manejar AMBAS versiones del texto (corta y larga)
-    if motivo == "Servicio TÃ©cnico (reparaciones de equipos en general)":
+    # Para Servicio Técnico, Asistencia Técnica (Post Venta), Cambio por falla crítica
+    if motivo == "Servicio Técnico (reparaciones de equipos en general)":
         codigo_motivo = "ST/R"
-    elif motivo in ["Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
-                    "Asistencia TÃ©cnica"]:
+    elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
         codigo_motivo = "AT"
-    elif motivo == "Cambio por falla de funcionamiento crÃ­tica":
+    elif motivo == "Cambio por falla de funcionamiento crítica":
         codigo_motivo = "FC"
     else:
         return "N/A"
     
-    # Para Distribuidor/InstituciÃ³n
-    if quien_completa in ["Distribuidor", "InstituciÃ³n", "Colaborador de Syemed"]:
+    # Para Distribuidor/Institución
+    if quien_completa in ["Distribuidor", "Institución", "Colaborador de Syemed"]:
         equipo_origen = data.get('equipo_origen', '')
         
         # Si es alquilado
@@ -1259,8 +1257,8 @@ def generar_codigo_categoria(data):
         if equipo_origen == "Se lo entregaron":
             return codigo_motivo
         
-        # Si lo comprÃ³ de manera directa
-        elif equipo_origen == "Lo comprÃ³ de manera directa":
+        # Si lo compró de manera directa
+        elif equipo_origen == "Lo compró de manera directa":
             if tiene_garantia:
                 return f"G/{codigo_motivo}"
             else:
@@ -1277,13 +1275,13 @@ def insertar_solicitud(data, pdf_url=None):
         conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()
         
-        # Extraer datos bÃ¡sicos
+        # Extraer datos básicos
         email = data.get('email')
         quien_completa = data.get('quien_completa', '')
         area_solicitante = data.get('area_solicitante', '')
         
-        # Extraer datos especÃ­ficos segÃºn tipo de solicitante
-        # Para Distribuidor e InstituciÃ³n
+        # Extraer datos específicos según tipo de solicitante
+        # Para Distribuidor e Institución
         nombre_fantasia = data.get('nombre_fantasia', None)
         razon_social = data.get('razon_social', None)
         cuit = data.get('cuit', None)
@@ -1313,7 +1311,7 @@ def insertar_solicitud(data, pdf_url=None):
         # Para Colaborador (ya existen en tu BD: solicitante, nivel_urgencia, equipo_corresponde_a)
         solicitante = data.get('solicitante', None)
         
-        # Convertir nivel_urgencia numÃ©rico a texto
+        # Convertir nivel_urgencia numérico a texto
         nivel_urgencia_num = data.get('nivel_urgencia')
         if nivel_urgencia_num is not None:
             # Convertir a entero si es necesario
@@ -1336,15 +1334,15 @@ def insertar_solicitud(data, pdf_url=None):
         comentarios_caso = data.get('comentarios_caso', None)
         logistica_cargo = data.get('logistica_cargo', None)
         
-        # Generar cÃ³digo de categorÃ­a
+        # Generar código de categoría
         categoria = generar_codigo_categoria(data)
         
         # IMPORTANTE: Calcular observacion_ingreso ANTES de insertar la solicitud
-        # para poder usarlo tambiÃ©n en detalle_fallo
+        # para poder usarlo también en detalle_fallo
         observacion_ingreso = None
         
-        if motivo_solicitud == "Servicio TÃ©cnico (reparaciones de equipos en general)":
-            # Para ST: fallas + detalle + diagnÃ³stico
+        if motivo_solicitud == "Servicio Técnico (reparaciones de equipos en general)":
+            # Para ST: fallas + detalle + diagnóstico
             partes = []
             fallas = data.get('fallas_problemas', [])
             if fallas:
@@ -1354,13 +1352,13 @@ def insertar_solicitud(data, pdf_url=None):
                 partes.append(detalle)
             diagnostico = data.get('diagnostico_paciente', '')
             if diagnostico:
-                partes.append(f"DiagnÃ³stico: {diagnostico}")
+                partes.append(f"Diagnóstico: {diagnostico}")
             
             if partes:
                 observacion_ingreso = ' | '.join(partes)
         
         elif motivo_solicitud == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-            # Para Asistencia TÃ©cnica: consultas + detalle + diagnÃ³stico
+            # Para Asistencia Técnica: consultas + detalle + diagnóstico
             partes = []
             fallas = data.get('fallas_problemas', [])
             if fallas:
@@ -1370,13 +1368,13 @@ def insertar_solicitud(data, pdf_url=None):
                 partes.append(detalle)
             diagnostico = data.get('diagnostico_paciente', '')
             if diagnostico:
-                partes.append(f"DiagnÃ³stico: {diagnostico}")
+                partes.append(f"Diagnóstico: {diagnostico}")
             
             if partes:
                 observacion_ingreso = ' | '.join(partes)
         
         elif motivo_solicitud == "Baja de Alquiler":
-            # Para Baja de Alquiler: motivo + observaciÃ³n + estado
+            # Para Baja de Alquiler: motivo + observación + estado
             partes = []
             motivo_baja = data.get('motivo_baja', '')
             if motivo_baja:
@@ -1395,15 +1393,15 @@ def insertar_solicitud(data, pdf_url=None):
             # Para Cambio de Alquiler: motivo del cambio
             observacion_ingreso = data.get('motivo_cambio_alquiler', '')
         
-        elif motivo_solicitud == "Cambio por falla de funcionamiento crÃ­tica":
-            # Para Falla CrÃ­tica: descripciÃ³n + diagnÃ³stico
+        elif motivo_solicitud == "Cambio por falla de funcionamiento crítica":
+            # Para Falla Crítica: descripción + diagnóstico
             partes = []
             detalle = data.get('detalle_fallo', '')
             if detalle:
                 partes.append(detalle)
             diagnostico = data.get('diagnostico_paciente', '')
             if diagnostico:
-                partes.append(f"DiagnÃ³stico: {diagnostico}")
+                partes.append(f"Diagnóstico: {diagnostico}")
             
             if partes:
                 observacion_ingreso = ' | '.join(partes)
@@ -1461,14 +1459,14 @@ def insertar_solicitud(data, pdf_url=None):
         
         solicitud_id = cursor.fetchone()[0]
             
-        # Determinar el nombre del cliente segÃºn el tipo de solicitante
+        # Determinar el nombre del cliente según el tipo de solicitante
         cliente = "Syemed"
         quien_completa = data.get('quien_completa', '')
         equipo_propiedad = data.get('equipo_propiedad', '')
 
         if quien_completa == "Distribuidor":
             cliente = "Syemed" if equipo_propiedad == "Alquilado" else data.get('nombre_fantasia', 'Syemed')
-        elif quien_completa == "InstituciÃ³n":
+        elif quien_completa == "Institución":
             cliente = "Syemed" if equipo_propiedad == "Alquilado" else data.get('nombre_fantasia', 'Syemed')
         elif quien_completa == "Paciente/Particular":
             cliente = data.get('nombre_apellido_paciente', 'Syemed')
@@ -1476,15 +1474,15 @@ def insertar_solicitud(data, pdf_url=None):
             equipo_corresponde_a = data.get('equipo_corresponde_a', '')
             if equipo_corresponde_a == "Distribuidor":
                 cliente = "Syemed" if equipo_propiedad == "Alquilado" else data.get('nombre_fantasia', 'Syemed')
-            elif equipo_corresponde_a == "InstituciÃ³n":
+            elif equipo_corresponde_a == "Institución":
                 cliente = "Syemed" if equipo_propiedad == "Alquilado" else data.get('nombre_fantasia', 'Syemed')
             elif equipo_corresponde_a == "Paciente/Particular":
                 cliente = data.get('nombre_apellido_paciente', 'Syemed')
         
         # observacion_ingreso ya fue calculado arriba, no hace falta recalcularlo
         
-        # Insertar equipos (CON fecha_ingreso, OST se genera automÃ¡tico)
-        # CAMBIO: Asistencia TÃ©cnica NO genera OST ni se guarda en equipos
+        # Insertar equipos (CON fecha_ingreso, OST se genera automático)
+        # CAMBIO: Asistencia Técnica NO genera OST ni se guarda en equipos
         equipos_ids = []
         equipos_osts = []  # Para devolver los OST generados
         
@@ -1496,13 +1494,13 @@ def insertar_solicitud(data, pdf_url=None):
         """)
         factura_url_existe = cursor.fetchone() is not None
         
-        # Solo insertar equipos si NO es Asistencia TÃ©cnica
+        # Solo insertar equipos si NO es Asistencia Técnica
         if motivo_solicitud != "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
             for i, equipo in enumerate(data.get('equipos', []), 1):
                 if equipo.get('tipo_equipo') and equipo['tipo_equipo'] != "Seleccionar tipo...":
                     
                     if factura_url_existe:
-                        # VERSIÃ“N CON factura_url (BD actualizada)
+                        # VERSIÓN CON factura_url (BD actualizada)
                         cursor.execute("""
                             INSERT INTO equipos (
                                 solicitud_id, numero_equipo, tipo_equipo, marca, modelo,
@@ -1529,7 +1527,7 @@ def insertar_solicitud(data, pdf_url=None):
                             ahora_buenos_aires()  # fecha_ingreso
                         ))
                     else:
-                        # VERSIÃ“N SIN factura_url (retrocompatible)
+                        # VERSIÓN SIN factura_url (retrocompatible)
                         cursor.execute("""
                             INSERT INTO equipos (
                                 solicitud_id, numero_equipo, tipo_equipo, marca, modelo,
@@ -1567,7 +1565,7 @@ def insertar_solicitud(data, pdf_url=None):
             for archivo_info in data['archivos_urls']:
                 tipo_archivo = archivo_info.get('tipo')
                 
-                # Determinar categorÃ­a y equipo_id
+                # Determinar categoría y equipo_id
                 categoria = 'general'
                 equipo_id_ref = None
                 
@@ -1577,7 +1575,7 @@ def insertar_solicitud(data, pdf_url=None):
                     equipo_num = archivo_info.get('equipo_num')
                     
                     # Si equipo_num es 'todos', vincular al primer equipo
-                    # La factura tambiÃ©n se guarda en equipos.factura_url para todos
+                    # La factura también se guarda en equipos.factura_url para todos
                     if equipo_num == 'todos' and equipos_ids:
                         equipo_id_ref = equipos_ids[0]  # Vincular al primer equipo
                     elif isinstance(equipo_num, int) and equipo_num <= len(equipos_ids):
@@ -1611,16 +1609,16 @@ def insertar_solicitud(data, pdf_url=None):
         
         conn.commit()
         
-        # Mostrar informaciÃ³n de OSTs generados en la consola (para debug)
+        # Mostrar información de OSTs generados en la consola (para debug)
         if equipos_osts:
-            print(f"\nâœ… OSTs generados: {', '.join(map(str, equipos_osts))}")
+            print(f"\n✅ OSTs generados: {', '.join(map(str, equipos_osts))}")
         
         return True, solicitud_id, equipos_osts
         
     except Exception as e:
         if conn:
             conn.rollback()
-        print(f"âŒ Error en insertar_solicitud: {str(e)}")  # Debug
+        print(f"❌ Error en insertar_solicitud: {str(e)}")  # Debug
         return False, str(e), []
     finally:
         if conn:
@@ -1630,7 +1628,7 @@ def insertar_solicitud(data, pdf_url=None):
 # ============================================================================
 
 def obtener_rate_limit_key():
-    """Obtiene un identificador Ãºnico del usuario (IP o session)"""
+    """Obtiene un identificador único del usuario (IP o session)"""
     # Streamlit no expone la IP directamente, usamos session_id
     if 'user_id' not in st.session_state:
         st.session_state.user_id = hashlib.md5(str(time.time()).encode()).hexdigest()
@@ -1638,10 +1636,10 @@ def obtener_rate_limit_key():
 
 def verificar_rate_limit(max_solicitudes=3, ventana_minutos=60):
     """
-    Limita el nÃºmero de solicitudes por usuario
+    Limita el número de solicitudes por usuario
     
     Args:
-        max_solicitudes: MÃ¡ximo de solicitudes permitidas
+        max_solicitudes: Máximo de solicitudes permitidas
         ventana_minutos: Ventana de tiempo en minutos
     
     Returns:
@@ -1660,13 +1658,13 @@ def verificar_rate_limit(max_solicitudes=3, ventana_minutos=60):
             if ahora - timestamp < timedelta(minutes=ventana_minutos)
         ]
     
-    # Verificar lÃ­mite
+    # Verificar límite
     solicitudes_recientes = len(st.session_state.rate_limit.get(user_key, []))
     
     if solicitudes_recientes >= max_solicitudes:
         tiempo_mas_antiguo = min(st.session_state.rate_limit[user_key])
         tiempo_restante = int((tiempo_mas_antiguo + timedelta(minutes=ventana_minutos) - ahora).total_seconds() / 60)
-        return False, f"Has alcanzado el lÃ­mite de {max_solicitudes} solicitudes por hora. Intenta en {tiempo_restante} minutos.", tiempo_restante
+        return False, f"Has alcanzado el límite de {max_solicitudes} solicitudes por hora. Intenta en {tiempo_restante} minutos.", tiempo_restante
     
     return True, "OK", 0
 
@@ -1679,7 +1677,7 @@ def registrar_solicitud_rate_limit():
 
 
 # ============================================================================
-# 2. VALIDACIÃ“N DE ARCHIVOS - Prevenir malware y archivos peligrosos
+# 2. VALIDACIÓN DE ARCHIVOS - Prevenir malware y archivos peligrosos
 # ============================================================================
 
 # Extensiones permitidas
@@ -1698,19 +1696,19 @@ MIME_TYPES_PERMITIDOS = {
     'text/plain'
 }
 
-# TamaÃ±os mÃ¡ximos (en MB)
+# Tamaños máximos (en MB)
 TAMANO_MAX_IMAGEN = 10  # 10 MB
 TAMANO_MAX_VIDEO = 50   # 50 MB
 TAMANO_MAX_DOCUMENTO = 5 # 5 MB
 
 def validar_extension_archivo(nombre_archivo):
-    """Valida que la extensiÃ³n del archivo sea permitida"""
+    """Valida que la extensión del archivo sea permitida"""
     extension = '.' + nombre_archivo.lower().split('.')[-1]
     todas_extensiones = [ext for lista in EXTENSIONES_PERMITIDAS.values() for ext in lista]
     return extension in todas_extensiones
 
 def validar_mime_type(archivo):
-    """Valida el MIME type real del archivo (no solo la extensiÃ³n)"""
+    """Valida el MIME type real del archivo (no solo la extensión)"""
     try:
         # Leer los primeros bytes para detectar el tipo real
         archivo.seek(0)
@@ -1722,19 +1720,19 @@ def validar_mime_type(archivo):
         return False, "unknown"
 
 def validar_tamano_archivo(archivo):
-    """Valida el tamaÃ±o del archivo segÃºn su tipo"""
+    """Valida el tamaño del archivo según su tipo"""
     tamano_mb = archivo.size / (1024 * 1024)
     extension = '.' + archivo.name.lower().split('.')[-1]
     
     if extension in EXTENSIONES_PERMITIDAS['imagenes']:
         if tamano_mb > TAMANO_MAX_IMAGEN:
-            return False, f"La imagen supera el tamaÃ±o mÃ¡ximo de {TAMANO_MAX_IMAGEN}MB"
+            return False, f"La imagen supera el tamaño máximo de {TAMANO_MAX_IMAGEN}MB"
     elif extension in EXTENSIONES_PERMITIDAS['videos']:
         if tamano_mb > TAMANO_MAX_VIDEO:
-            return False, f"El video supera el tamaÃ±o mÃ¡ximo de {TAMANO_MAX_VIDEO}MB"
+            return False, f"El video supera el tamaño máximo de {TAMANO_MAX_VIDEO}MB"
     elif extension in EXTENSIONES_PERMITIDAS['documentos']:
         if tamano_mb > TAMANO_MAX_DOCUMENTO:
-            return False, f"El documento supera el tamaÃ±o mÃ¡ximo de {TAMANO_MAX_DOCUMENTO}MB"
+            return False, f"El documento supera el tamaño máximo de {TAMANO_MAX_DOCUMENTO}MB"
     
     return True, f"{tamano_mb:.2f}MB"
 
@@ -1748,18 +1746,18 @@ def escanear_nombre_archivo(nombre_archivo):
     
     for patron in patrones_sospechosos:
         if re.search(patron, nombre_archivo.lower()):
-            return False, f"ExtensiÃ³n no permitida: {patron}"
+            return False, f"Extensión no permitida: {patron}"
     
-    # Detectar doble extensiÃ³n (ej: documento.pdf.exe)
+    # Detectar doble extensión (ej: documento.pdf.exe)
     partes = nombre_archivo.split('.')
     if len(partes) > 2:
-        return False, "Archivo con mÃºltiples extensiones no permitido"
+        return False, "Archivo con múltiples extensiones no permitido"
     
     return True, "OK"
 
 def validar_archivo_completo(archivo):
     """
-    ValidaciÃ³n completa de un archivo
+    Validación completa de un archivo
     
     Returns:
         tuple: (es_valido: bool, mensaje: str)
@@ -1767,31 +1765,31 @@ def validar_archivo_completo(archivo):
     # 1. Validar nombre
     valido_nombre, msg_nombre = escanear_nombre_archivo(archivo.name)
     if not valido_nombre:
-        return False, f"âŒ Nombre invÃ¡lido: {msg_nombre}"
+        return False, f"❌ Nombre inválido: {msg_nombre}"
     
-    # 2. Validar extensiÃ³n
+    # 2. Validar extensión
     if not validar_extension_archivo(archivo.name):
-        return False, f"âŒ ExtensiÃ³n no permitida: {archivo.name}"
+        return False, f"❌ Extensión no permitida: {archivo.name}"
     
-    # 3. Validar tamaÃ±o
+    # 3. Validar tamaño
     valido_tamano, msg_tamano = validar_tamano_archivo(archivo)
     if not valido_tamano:
-        return False, f"âŒ {msg_tamano}"
+        return False, f"❌ {msg_tamano}"
     
     # 4. Validar MIME type (requiere python-magic)
     try:
         valido_mime, mime_type = validar_mime_type(archivo)
         if not valido_mime:
-            return False, f"âŒ Tipo de archivo no permitido: {mime_type}"
+            return False, f"❌ Tipo de archivo no permitido: {mime_type}"
     except:
-        # Si python-magic no estÃ¡ instalado, continuar sin esta validaciÃ³n
-        st.warning("âš ï¸ ValidaciÃ³n de tipo de archivo no disponible. Instala python-magic para mayor seguridad.")
+        # Si python-magic no está instalado, continuar sin esta validación
+        st.warning("⚠️ Validación de tipo de archivo no disponible. Instala python-magic para mayor seguridad.")
     
-    return True, f"âœ… Archivo vÃ¡lido ({msg_tamano})"
+    return True, f"✅ Archivo válido ({msg_tamano})"
 
 
 # ============================================================================
-# 3. SANITIZACIÃ“N DE INPUTS - Prevenir SQL Injection y XSS
+# 3. SANITIZACIÓN DE INPUTS - Prevenir SQL Injection y XSS
 # ============================================================================
 
 def sanitizar_texto(texto, max_length=500):
@@ -1807,24 +1805,24 @@ def sanitizar_texto(texto, max_length=500):
     for char in caracteres_peligrosos:
         texto = texto.replace(char, '')
     
-    # Eliminar mÃºltiples espacios
+    # Eliminar múltiples espacios
     texto = ' '.join(texto.split())
     
     return texto.strip()
 
 def sanitizar_email(email):
-    """ValidaciÃ³n estricta de email"""
-    # PatrÃ³n mÃ¡s restrictivo
+    """Validación estricta de email"""
+    # Patrón más restrictivo
     patron = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(patron, email):
         return None
     return email.lower().strip()
 
 def sanitizar_numero_serie(numero_serie):
-    """Sanitiza nÃºmero de serie permitiendo solo alfanumÃ©ricos y guiones"""
+    """Sanitiza número de serie permitiendo solo alfanuméricos y guiones"""
     if not numero_serie:
         return ""
-    # Solo letras, nÃºmeros, guiones y espacios
+    # Solo letras, números, guiones y espacios
     return re.sub(r'[^a-zA-Z0-9\-\s]', '', str(numero_serie)).strip()
 
 
@@ -1833,7 +1831,7 @@ def sanitizar_numero_serie(numero_serie):
 # ============================================================================
 
 def generar_captcha():
-    """Genera un captcha matemÃ¡tico simple"""
+    """Genera un captcha matemático simple"""
     import random
     num1 = random.randint(1, 5)
     num2 = random.randint(1, 5)
@@ -1841,7 +1839,7 @@ def generar_captcha():
     
     if 'captcha_respuesta' not in st.session_state:
         st.session_state.captcha_respuesta = respuesta_correcta
-        st.session_state.captcha_pregunta = f"Â¿CuÃ¡nto es {num1} + {num2}?"
+        st.session_state.captcha_pregunta = f"¿Cuánto es {num1} + {num2}?"
     
     return st.session_state.captcha_pregunta, st.session_state.captcha_respuesta
 
@@ -1857,22 +1855,22 @@ def mostrar_captcha():
     pregunta, respuesta_correcta = generar_captcha()
     
     st.markdown("---")
-    st.markdown("### ðŸ¤– VerificaciÃ³n de seguridad")
+    st.markdown("### 🤖 Verificación de seguridad")
     
     col1, col2 = st.columns([2, 1])
     with col1:
         respuesta_usuario = st.text_input(
             pregunta,
             key="captcha_input",
-            help="Por favor resuelve esta operaciÃ³n matemÃ¡tica para continuar"
+            help="Por favor resuelve esta operación matemática para continuar"
         )
     
     if respuesta_usuario:
         if verificar_captcha(respuesta_usuario):
-            st.success("âœ… VerificaciÃ³n correcta")
+            st.success("✅ Verificación correcta")
             return True
         else:
-            st.error("âŒ Respuesta incorrecta. Intenta nuevamente.")
+            st.error("❌ Respuesta incorrecta. Intenta nuevamente.")
             return False
     
     return False
@@ -1884,8 +1882,8 @@ def mostrar_captcha():
 
 def agregar_honeypot():
     """
-    Agrega un campo oculto que solo los bots llenarÃ¡n
-    Los usuarios reales no lo verÃ¡n debido al CSS
+    Agrega un campo oculto que solo los bots llenarán
+    Los usuarios reales no lo verán debido al CSS
     """
     st.markdown("""
     <style>
@@ -1900,7 +1898,7 @@ def agregar_honeypot():
     
     # Campo honeypot (oculto con CSS)
     honeypot_value = st.text_input(
-        "Si eres humano, deja este campo vacÃ­o",
+        "Si eres humano, deja este campo vacío",
         key="honeypot_field",
         label_visibility="collapsed"
     )
@@ -1908,7 +1906,7 @@ def agregar_honeypot():
     return honeypot_value
 
 def verificar_honeypot(honeypot_value):
-    """Verifica que el honeypot estÃ© vacÃ­o"""
+    """Verifica que el honeypot esté vacío"""
     return not honeypot_value or honeypot_value.strip() == ""
 
 
@@ -1949,14 +1947,14 @@ def registrar_intento_sospechoso(razon, datos_adicionales=None):
         st.session_state.intentos_sospechosos = 0
     st.session_state.intentos_sospechosos += 1
     
-    # Bloquear despuÃ©s de 3 intentos sospechosos
+    # Bloquear después de 3 intentos sospechosos
     if st.session_state.intentos_sospechosos >= 3:
-        st.error("ðŸš« Has sido bloqueado temporalmente por actividad sospechosa.")
+        st.error("🚫 Has sido bloqueado temporalmente por actividad sospechosa.")
         st.stop()
 
 
 # ============================================================================
-# 7. INTEGRACIÃ“N CON EL FORMULARIO
+# 7. INTEGRACIÓN CON EL FORMULARIO
 # ============================================================================
 
 def aplicar_seguridad_formulario(data, archivos_fotos=None, archivos_facturas=None):
@@ -1971,13 +1969,13 @@ def aplicar_seguridad_formulario(data, archivos_fotos=None, archivos_facturas=No
     permitido, msg_rate, tiempo = verificar_rate_limit(max_solicitudes=5, ventana_minutos=60)
     if not permitido:
         registrar_intento_sospechoso('RATE_LIMIT_EXCEDIDO', {'tiempo_restante': tiempo})
-        return False, f"â±ï¸ {msg_rate}"
+        return False, f"⏱️ {msg_rate}"
     
     # 2. Verificar Honeypot
     honeypot = agregar_honeypot()
     if not verificar_honeypot(honeypot):
         registrar_intento_sospechoso('HONEYPOT_LLENO', {'valor': honeypot})
-        return False, "âŒ ValidaciÃ³n de seguridad fallida."
+        return False, "❌ Validación de seguridad fallida."
     
     # 3. Validar archivos (fotos por equipo)
     for equipo in data.get('equipos', []):
@@ -1986,7 +1984,7 @@ def aplicar_seguridad_formulario(data, archivos_fotos=None, archivos_facturas=No
                 valido, mensaje = validar_archivo_completo(archivo)
                 if not valido:
                     registrar_intento_sospechoso('ARCHIVO_INVALIDO', {'archivo': archivo.name, 'razon': mensaje})
-                    return False, f"ðŸ“ {mensaje}"
+                    return False, f"📁 {mensaje}"
     
     if archivos_facturas:
         for archivo in archivos_facturas:
@@ -1994,12 +1992,12 @@ def aplicar_seguridad_formulario(data, archivos_fotos=None, archivos_facturas=No
                 valido, mensaje = validar_archivo_completo(archivo)
                 if not valido:
                     registrar_intento_sospechoso('ARCHIVO_INVALIDO', {'archivo': archivo.name, 'razon': mensaje})
-                    return False, f"ðŸ“ {mensaje}"
+                    return False, f"📁 {mensaje}"
     
     # 4. Sanitizar textos
     data['email'] = sanitizar_email(data.get('email', ''))
     if not data['email']:
-        return False, "âŒ Email invÃ¡lido"
+        return False, "❌ Email inválido"
     
     campos_texto = ['comentarios_caso', 'detalle_fallo', 'diagnostico_paciente', 
                     'nombre_fantasia', 'razon_social', 'contacto_nombre']
@@ -2007,7 +2005,7 @@ def aplicar_seguridad_formulario(data, archivos_fotos=None, archivos_facturas=No
         if campo in data and data[campo]:
             data[campo] = sanitizar_texto(data[campo], max_length=1000)
     
-    # Sanitizar nÃºmeros de serie
+    # Sanitizar números de serie
     for equipo in data.get('equipos', []):
         if 'numero_serie' in equipo:
             equipo['numero_serie'] = sanitizar_numero_serie(equipo['numero_serie'])
@@ -2020,25 +2018,25 @@ def aplicar_seguridad_formulario(data, archivos_fotos=None, archivos_facturas=No
         'num_equipos': len(data.get('equipos', []))
     })
     
-    return True, "âœ… Validaciones de seguridad aprobadas"
+    return True, "✅ Validaciones de seguridad aprobadas"
 def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, form_key):
     """
-    Flujo condicional para Distribuidor e InstituciÃ³n
+    Flujo condicional para Distribuidor e Institución
     
-    Pregunta inicial: Â¿El equipo es alquilado o propio?
-    - Si Alquilado -> mostrar: ST, Asistencia TÃ©cnica, Baja Alquiler, Cambio Alquiler, Cambio por falla crÃ­tica
-    - Si Propio -> Pregunta: Â¿Nos lo comprÃ³ de manera directa?
-        - Si SÃ­ -> Â¿EstÃ¡ en garantÃ­a? (SÃ­, No, No lo sÃ©)
-            - Si SÃ­ -> Permitir cargar factura + mostrar: ST, Asistencia TÃ©cnica, Cambio por falla crÃ­tica
-            - Si No o No lo sÃ© -> mostrar: ST, Asistencia TÃ©cnica, Cambio por falla crÃ­tica
-        - Si No -> mostrar: ST, Asistencia TÃ©cnica, Cambio por falla crÃ­tica
+    Pregunta inicial: ¿El equipo es alquilado o propio?
+    - Si Alquilado -> mostrar: ST, Asistencia Técnica, Baja Alquiler, Cambio Alquiler, Cambio por falla crítica
+    - Si Propio -> Pregunta: ¿Nos lo compró de manera directa?
+        - Si Sí -> ¿Está en garantía? (Sí, No, No lo sé)
+            - Si Sí -> Permitir cargar factura + mostrar: ST, Asistencia Técnica, Cambio por falla crítica
+            - Si No o No lo sé -> mostrar: ST, Asistencia Técnica, Cambio por falla crítica
+        - Si No -> mostrar: ST, Asistencia Técnica, Cambio por falla crítica
     """
     
-    st.markdown('<div class="section-header"><h3>InformaciÃ³n del Equipo</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
     
-    # PREGUNTA INICIAL: Â¿El equipo es alquilado o propio?
+    # PREGUNTA INICIAL: ¿El equipo es alquilado o propio?
     equipo_propiedad = st.selectbox(
-        "Â¿El equipo es alquilado o propio? *",
+        "¿El equipo es alquilado o propio? *",
         ["", "Alquilado", "Propio"],
         key=f"{tipo_cliente}_propiedad_{form_key}"
     )
@@ -2056,17 +2054,17 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
         motivo_solicitud = st.selectbox(
             "Motivo de la solicitud *",
             ["",
-             "Servicio TÃ©cnico (reparaciones de equipos en general)",
-             "Asistencia TÃ©cnica",
+             "Servicio Técnico (reparaciones de equipos en general)",
+             "Asistencia Técnica",
              "Baja de Alquiler",
              "Cambio de Alquiler",
-             "Cambio por falla crÃ­tica"],
+             "Cambio por falla crítica"],
             key=f"{tipo_cliente}_motivo_alquilado_{form_key}"
         )
         
         # Si es Cambio de Alquiler, pedir motivo
         if motivo_solicitud == "Cambio de Alquiler":
-            st.info("ðŸ“ Por favor, especifique el motivo del cambio de alquiler")
+            st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
             motivo_cambio_alquiler = st.text_area(
                 "Motivo del cambio de alquiler *",
                 placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
@@ -2076,23 +2074,23 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
     
     # FLUJO PARA PROPIO
     elif equipo_propiedad == "Propio":
-        # Pregunta: Â¿Nos lo comprÃ³ de manera directa?
+        # Pregunta: ¿Nos lo compró de manera directa?
         compra_directa = st.selectbox(
-            "Â¿El equipo nos lo comprÃ³ de manera directa? *",
-            ["", "SÃ­", "No"],
+            "¿El equipo nos lo compró de manera directa? *",
+            ["", "Sí", "No"],
             key=f"{tipo_cliente}_compra_directa_{form_key}"
         )
         
-        # SI COMPRÃ“ DIRECTA
-        if compra_directa == "SÃ­":
+        # SI COMPRÓ DIRECTA
+        if compra_directa == "Sí":
             en_garantia = st.selectbox(
-                "Â¿EstÃ¡ en garantÃ­a? *",
-                ["", "SÃ­", "No", "No lo sÃ©"],
+                "¿Está en garantía? *",
+                ["", "Sí", "No", "No lo sé"],
                 key=f"{tipo_cliente}_garantia_{form_key}"
             )
             
-            # Si estÃ¡ en garantÃ­a, permitir cargar factura
-            if en_garantia == "SÃ­":
+            # Si está en garantía, permitir cargar factura
+            if en_garantia == "Sí":
                 col1, col2 = st.columns(2)
                 with col1:
                     fecha_compra = st.date_input(
@@ -2114,31 +2112,31 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
                 motivo_solicitud = st.selectbox(
                     "Motivo de la solicitud *",
                     ["",
-                     "Servicio TÃ©cnico (reparaciones de equipos en general)",
-                     "Asistencia TÃ©cnica",
-                     "Cambio por falla crÃ­tica"],
+                     "Servicio Técnico (reparaciones de equipos en general)",
+                     "Asistencia Técnica",
+                     "Cambio por falla crítica"],
                     key=f"{tipo_cliente}_motivo_garantia_{form_key}"
                 )
             
-            # Si NO estÃ¡ en garantÃ­a o No lo sÃ©
-            elif en_garantia in ["No", "No lo sÃ©"]:
+            # Si NO está en garantía o No lo sé
+            elif en_garantia in ["No", "No lo sé"]:
                 motivo_solicitud = st.selectbox(
                     "Motivo de la solicitud *",
                     ["",
-                     "Servicio TÃ©cnico (reparaciones de equipos en general)",
-                     "Asistencia TÃ©cnica",
-                     "Cambio por falla crÃ­tica"],
+                     "Servicio Técnico (reparaciones de equipos en general)",
+                     "Asistencia Técnica",
+                     "Cambio por falla crítica"],
                     key=f"{tipo_cliente}_motivo_sin_garantia_{form_key}"
                 )
         
-        # SI NO COMPRÃ“ DIRECTA
+        # SI NO COMPRÓ DIRECTA
         elif compra_directa == "No":
             motivo_solicitud = st.selectbox(
                 "Motivo de la solicitud *",
                 ["",
-                 "Servicio TÃ©cnico (reparaciones de equipos en general)",
-                 "Asistencia TÃ©cnica",
-                 "Cambio por falla crÃ­tica"],
+                 "Servicio Técnico (reparaciones de equipos en general)",
+                 "Asistencia Técnica",
+                 "Cambio por falla crítica"],
                 key=f"{tipo_cliente}_motivo_no_directo_{form_key}"
             )
     
@@ -2160,22 +2158,22 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
 
 def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
     """
-    VERSIÃ“N V14 - Flujo condicional para Paciente/Particular
+    VERSIÓN V14 - Flujo condicional para Paciente/Particular
     
     Pregunta inicial: El equipo es...
-    - Alquilado? -> Motivos: ST, Asistencia TÃ©cnica, Baja Alquiler, Cambio Alquiler, Cambio por falla crÃ­tica
-    - Se lo entregaron? -> Â¿QuiÃ©n lo entregÃ³? + Fecha + Obra Social -> Habilitar motivo: ST, Asistencia TÃ©cnica, Cambio por falla crÃ­tica
-    - Lo comprÃ³ de manera directa? -> Â¿EstÃ¡ en garantÃ­a? (SÃ­, No, No lo sÃ©)
-        - Si SÃ­ -> Cargar factura -> Habilitar motivo: ST, Asistencia TÃ©cnica, Cambio por falla crÃ­tica
-        - Si No o No lo sÃ© -> Habilitar motivo: ST, Asistencia TÃ©cnica, Cambio por falla crÃ­tica
+    - Alquilado? -> Motivos: ST, Asistencia Técnica, Baja Alquiler, Cambio Alquiler, Cambio por falla crítica
+    - Se lo entregaron? -> ¿Quién lo entregó? + Fecha + Obra Social -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
+    - Lo compró de manera directa? -> ¿Está en garantía? (Sí, No, No lo sé)
+        - Si Sí -> Cargar factura -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
+        - Si No o No lo sé -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
     """
     
-    st.markdown('<div class="section-header"><h3>InformaciÃ³n del Equipo</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
     
     # PREGUNTA INICIAL - MODIFICADA PARA INCLUIR ALQUILADO
     equipo_propiedad = st.selectbox(
         "El equipo es... *",
-        ["", "Alquilado", "Se lo entregaron", "Lo comprÃ³ de manera directa"],
+        ["", "Alquilado", "Se lo entregaron", "Lo compró de manera directa"],
         key=f"p_propiedad_{form_key}"
     )
     
@@ -2194,17 +2192,17 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
         motivo_solicitud = st.selectbox(
             "Motivo de la solicitud *",
             ["",
-             "Servicio TÃ©cnico (reparaciones de equipos en general)",
-             "Asistencia TÃ©cnica",
+             "Servicio Técnico (reparaciones de equipos en general)",
+             "Asistencia Técnica",
              "Baja de Alquiler",
              "Cambio de Alquiler",
-             "Cambio por falla crÃ­tica"],
+             "Cambio por falla crítica"],
             key=f"p_motivo_alquilado_{form_key}"
         )
         
         # Si es Cambio de Alquiler, pedir motivo
         if motivo_solicitud == "Cambio de Alquiler":
-            st.info("ðŸ“ Por favor, especifique el motivo del cambio de alquiler")
+            st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
             motivo_cambio_alquiler = st.text_area(
                 "Motivo del cambio de alquiler *",
                 placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
@@ -2215,7 +2213,7 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
     # FLUJO: SE LO ENTREGARON
     elif equipo_propiedad == "Se lo entregaron":
         quien_entrego = st.text_area(
-            "Â¿QuiÃ©n lo entregÃ³? *",
+            "¿Quién lo entregó? *",
             placeholder="Obra Social, Distribuidor, Ortopedia, Plataformas Digitales, etc.",
             key=f"p_quien_entrego_{form_key}",
             height=80
@@ -2229,7 +2227,7 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
                 max_value=date.today(),
                 format="DD/MM/YYYY",
                 key=f"p_fecha_entrega_{form_key}",
-                help="Fecha aproximada en que recibiÃ³ el equipo"
+                help="Fecha aproximada en que recibió el equipo"
             )
         with col2:
             obra_social = st.text_input(
@@ -2242,22 +2240,22 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
         motivo_solicitud = st.selectbox(
             "Motivo de la solicitud *",
             ["",
-             "Servicio TÃ©cnico (reparaciones de equipos en general)",
-             "Asistencia TÃ©cnica",
-             "Cambio por falla crÃ­tica"],
+             "Servicio Técnico (reparaciones de equipos en general)",
+             "Asistencia Técnica",
+             "Cambio por falla crítica"],
             key=f"p_motivo_entregado_{form_key}"
         )
     
-    # FLUJO: LO COMPRÃ“ DE MANERA DIRECTA
-    elif equipo_propiedad == "Lo comprÃ³ de manera directa":
+    # FLUJO: LO COMPRÓ DE MANERA DIRECTA
+    elif equipo_propiedad == "Lo compró de manera directa":
         en_garantia = st.selectbox(
-            "Â¿EstÃ¡ en garantÃ­a? *",
-            ["", "SÃ­", "No", "No lo sÃ©"],
+            "¿Está en garantía? *",
+            ["", "Sí", "No", "No lo sé"],
             key=f"p_garantia_{form_key}"
         )
         
-        # Si estÃ¡ en garantÃ­a, cargar factura
-        if en_garantia == "SÃ­":
+        # Si está en garantía, cargar factura
+        if en_garantia == "Sí":
             col1, col2 = st.columns(2)
             with col1:
                 fecha_compra = st.date_input(
@@ -2278,20 +2276,20 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
             motivo_solicitud = st.selectbox(
                 "Motivo de la solicitud *",
                 ["",
-                 "Servicio TÃ©cnico (reparaciones de equipos en general)",
-                 "Asistencia TÃ©cnica",
-                 "Cambio por falla crÃ­tica"],
+                 "Servicio Técnico (reparaciones de equipos en general)",
+                 "Asistencia Técnica",
+                 "Cambio por falla crítica"],
                 key=f"p_motivo_garantia_{form_key}"
             )
         
-        # Si NO estÃ¡ en garantÃ­a o No lo sÃ©
-        elif en_garantia in ["No", "No lo sÃ©"]:
+        # Si NO está en garantía o No lo sé
+        elif en_garantia in ["No", "No lo sé"]:
             motivo_solicitud = st.selectbox(
                 "Motivo de la solicitud *",
                 ["",
-                 "Servicio TÃ©cnico (reparaciones de equipos en general)",
-                 "Asistencia TÃ©cnica",
-                 "Cambio por falla crÃ­tica"],
+                 "Servicio Técnico (reparaciones de equipos en general)",
+                 "Asistencia Técnica",
+                 "Cambio por falla crítica"],
                 key=f"p_motivo_sin_garantia_{form_key}"
             )
     
@@ -2317,15 +2315,15 @@ def normalizar_motivo_solicitud(motivo_texto):
     """
     Normaliza el texto del motivo para compatibilidad con la BD
     
-    NUEVA VERSIÃ“N - Reemplazar la funciÃ³n existente
+    NUEVA VERSIÓN - Reemplazar la función existente
     """
     if not motivo_texto:
         return ""
     
     # Mapeo de textos cortos a valores largos en BD
     mapeo = {
-        "Asistencia TÃ©cnica": "Servicio Post Venta (para alguno de nuestros productos adquiridos)",
-        "Cambio por falla crÃ­tica": "Cambio por falla de funcionamiento crÃ­tica"
+        "Asistencia Técnica": "Servicio Post Venta (para alguno de nuestros productos adquiridos)",
+        "Cambio por falla crítica": "Cambio por falla de funcionamiento crítica"
     }
     
     return mapeo.get(motivo_texto, motivo_texto)
@@ -2385,22 +2383,22 @@ def main():
                 <img src="https://res.cloudinary.com/dfxjqvan0/image/upload/v1762453830/LOGO_SYEMED_MUX-removebg_df3gwy.png" alt="Logo Syemed" />
         </div>
         <p><strong>Contacto:</strong> Servicio de Post Venta y ST</p>
-        <p><strong>AtenciÃ³n:</strong> Lunes a Viernes de 8 a 17hs</p>
-        <p><strong>TelÃ©fono para urgencias:</strong> 11 2373-0278</p>
+        <p><strong>Atención:</strong> Lunes a Viernes de 8 a 17hs</p>
+        <p><strong>Teléfono para urgencias:</strong> 11 2373-0278</p>
     </div>
     """, unsafe_allow_html=True)
 
         
-    # SECCIÃ“N 1: InformaciÃ³n bÃ¡sica
-    st.markdown('<div class="section-header"><h2>InformaciÃ³n BÃ¡sica</h2></div>', unsafe_allow_html=True)
+    # SECCIÓN 1: Información básica
+    st.markdown('<div class="section-header"><h2>Información Básica</h2></div>', unsafe_allow_html=True)
     
     email = st.text_input(
-        "Correo electrÃ³nico *", 
+        "Correo electrónico *", 
         placeholder="ejemplo@empresa.com",
         key=f"email_{st.session_state.form_key}"
     )
     
-    # VALIDACIÃ“N DEL EMAIL
+    # VALIDACIÓN DEL EMAIL
     email_valido = False
     email_normalizado = ""
     
@@ -2408,15 +2406,15 @@ def main():
         es_valido, mensaje, email_normalizado = validar_email_formato(email)
         
         if es_valido:
-            st.success(f"âœ“ {mensaje}")
+            st.success(f"✓ {mensaje}")
             email_valido = True
         else:
-            st.error(f"âœ— {mensaje}")
-            st.info("ðŸ’¡ Formato correcto: usuario@dominio.com")
+            st.error(f"✗ {mensaje}")
+            st.info("💡 Formato correcto: usuario@dominio.com")
 
     quien_completa = st.selectbox(
-    "Â¿QuiÃ©n estÃ¡ completando la solicitud? *",
-    ["", "Colaborador de Syemed", "Distribuidor", "InstituciÃ³n", "Paciente/Particular"],
+    "¿Quién está completando la solicitud? *",
+    ["", "Colaborador de Syemed", "Distribuidor", "Institución", "Paciente/Particular"],
     key=f"quien_completa_{st.session_state.form_key}"
     )
     
@@ -2428,18 +2426,18 @@ def main():
         'quien_completa': quien_completa
     }
     
-    # Solo continuar si el email es vÃ¡lido Y se ha completado quien_completa
+    # Solo continuar si el email es válido Y se ha completado quien_completa
     if email_valido and quien_completa:
         
-        # SECCIÃ“N 2: Colaboradores de Syemed
+        # SECCIÓN 2: Colaboradores de Syemed
         if quien_completa == "Colaborador de Syemed":
             st.markdown('<div class="section-header"><h2>Colaboradores de Syemed</h2></div>', unsafe_allow_html=True)
             
             col1, col2 = st.columns(2)
             with col1:
                 area_solicitante = st.selectbox(
-                    "Ãrea Solicitante *", 
-                    ["", "Comercial", "Comex", "LogÃ­stica/DepÃ³sito"],
+                    "Área Solicitante *", 
+                    ["", "Comercial", "Comex", "Logística/Depósito"],
                     key=f"area_{st.session_state.form_key}"
                 )
                 
@@ -2458,31 +2456,31 @@ def main():
                 key=f"urgencia_{st.session_state.form_key}"
             )
 
-            st.markdown("**LogÃ­stica a cargo de:**")
-            st.info("ðŸ’¡ Seleccione todas las opciones que apliquen y luego continÃºe mÃ¡s abajo")
+            st.markdown("**Logística a cargo de:**")
+            st.info("💡 Seleccione todas las opciones que apliquen y luego continúe más abajo")
             logistica_cargo = st.multiselect(
                 "Seleccione las opciones que apliquen:", 
                 ["Ida a cargo de Cliente", "Ida a cargo de Syemed", "Vuelta a cargo de Cliente", "Vuelta a cargo de Syemed"],
                 key=f"logistica_{st.session_state.form_key}",
-                help="Puede seleccionar mÃºltiples opciones. Haga clic fuera del menÃº cuando termine.",
+                help="Puede seleccionar múltiples opciones. Haga clic fuera del menú cuando termine.",
                 label_visibility="collapsed"
             )
-            # Mostrar resumen de selecciÃ³n
+            # Mostrar resumen de selección
             if logistica_cargo:
-                st.success(f"âœ… {len(logistica_cargo)} opciÃ³n(es) seleccionada(s)")
+                st.success(f"✅ {len(logistica_cargo)} opción(es) seleccionada(s)")
                 for opcion in logistica_cargo:
-                    st.caption(f"  â€¢ {opcion}")
+                    st.caption(f"  • {opcion}")
             
             comentarios_caso = st.text_area(
                 "Comentarios sobre el caso", 
-                placeholder="NOTA 1: En el caso de que la solicitud sea por un Equipo del Stock indicar si vuelve a stock de venta...\nNOTA 2: Colocar direcciÃ³n y datos para la entrega si corresponde.", 
+                placeholder="NOTA 1: En el caso de que la solicitud sea por un Equipo del Stock indicar si vuelve a stock de venta...\nNOTA 2: Colocar dirección y datos para la entrega si corresponde.", 
                 height=100,
                 key=f"comentarios_{st.session_state.form_key}"
             )
             
             equipo_corresponde_a = st.selectbox(
                 "El equipo corresponde a: *", 
-                ["", "Paciente/Particular", "Distribuidor", "InstituciÃ³n", "Equipo de Stock", "Baja de demo"],
+                ["", "Paciente/Particular", "Distribuidor", "Institución", "Equipo de Stock", "Baja de demo"],
                 key=f"equipo_corresponde_{st.session_state.form_key}"
             )
             
@@ -2495,10 +2493,10 @@ def main():
                 'equipo_corresponde_a': equipo_corresponde_a
             })
             
-            # LÃ³gica condicional para Colaboradores segÃºn "El equipo corresponde a"
+            # Lógica condicional para Colaboradores según "El equipo corresponde a"
             if equipo_corresponde_a == "Distribuidor":
                 mostrar_seccion_distribuidorB(data)
-            elif equipo_corresponde_a == "InstituciÃ³n":
+            elif equipo_corresponde_a == "Institución":
                 mostrar_seccion_institucionB(data)
             elif equipo_corresponde_a == "Paciente/Particular":
                 mostrar_seccion_paciente(data)
@@ -2511,62 +2509,62 @@ def main():
                 mostrar_seccion_equipos(data, contexto="baja_demo")
 
         
-        # SECCIÃ“N 3: Distribuidor directo
+        # SECCIÓN 3: Distribuidor directo
         elif quien_completa == "Distribuidor":
             mostrar_seccion_distribuidor(data, es_directo=True)
         
-        # SECCIÃ“N 4: InstituciÃ³n directo
-        elif quien_completa == "InstituciÃ³n":
+        # SECCIÓN 4: Institución directo
+        elif quien_completa == "Institución":
             mostrar_seccion_institucion(data, es_directo=True)
         
-        # SECCIÃ“N 5: Paciente/Particular directo
+        # SECCIÓN 5: Paciente/Particular directo
         elif quien_completa == "Paciente/Particular":
             mostrar_seccion_paciente(data, es_directo=True)
         
-        # Obtener el motivo segÃºn el tipo de solicitante
+        # Obtener el motivo según el tipo de solicitante
         motivo = data.get('motivo_solicitud', '')
         
-        # SECCIÃ“N 6: Detalles de Servicio TÃ©cnico
-        # SECCIÃ“N DE FALLAS/PROBLEMAS CLASIFICADA POR MOTIVO
-        if motivo in ["Servicio TÃ©cnico (reparaciones de equipos en general)", 
+        # SECCIÓN 6: Detalles de Servicio Técnico
+        # SECCIÓN DE FALLAS/PROBLEMAS CLASIFICADA POR MOTIVO
+        if motivo in ["Servicio Técnico (reparaciones de equipos en general)", 
                       "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
-                      "Cambio por falla de funcionamiento crÃ­tica"]:
+                      "Cambio por falla de funcionamiento crítica"]:
             
-            # Determinar tÃ­tulo dinÃ¡mico segÃºn motivo
-            if motivo == "Servicio TÃ©cnico (reparaciones de equipos en general)":
-                titulo_seccion = "Detalles del Servicio TÃ©cnico"
+            # Determinar título dinámico según motivo
+            if motivo == "Servicio Técnico (reparaciones de equipos en general)":
+                titulo_seccion = "Detalles del Servicio Técnico"
             elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-                titulo_seccion = "Detalles de Asistencia TÃ©cnica"
-            elif motivo == "Cambio por falla de funcionamiento crÃ­tica":
-                titulo_seccion = "Detalles de Cambio por Falla CrÃ­tica"
+                titulo_seccion = "Detalles de Asistencia Técnica"
+            elif motivo == "Cambio por falla de funcionamiento crítica":
+                titulo_seccion = "Detalles de Cambio por Falla Crítica"
             else:
-                titulo_seccion = "Detalles del Servicio TÃ©cnico"
+                titulo_seccion = "Detalles del Servicio Técnico"
 
             st.markdown(f'<div class="section-header"><h2>{titulo_seccion}</h2></div>', unsafe_allow_html=True)
             # Inicializar variables
             fallas_seleccionadas = []
             detalle_fallo = ""
             
-            # SERVICIO TÃ‰CNICO
-            if motivo == "Servicio TÃ©cnico (reparaciones de equipos en general)":
-                st.markdown("#### Fallas de Servicio TÃ©cnico")
+            # SERVICIO TÉCNICO
+            if motivo == "Servicio Técnico (reparaciones de equipos en general)":
+                st.markdown("#### Fallas de Servicio Técnico")
                 st.info("""
-                **Â¿CuÃ¡ndo solicitar Servicio TÃ©cnico?**
-                - Equipo no enciende o presenta fallas elÃ©ctricas
-                - Problemas mecÃ¡nicos o de funcionamiento
+                **¿Cuándo solicitar Servicio Técnico?**
+                - Equipo no enciende o presenta fallas eléctricas
+                - Problemas mecánicos o de funcionamiento
                 - Ruidos anormales o vibraciones
-                - PÃ©rdida de precisiÃ³n o calibraciÃ³n
+                - Pérdida de precisión o calibración
                 - Desgaste de componentes
                 - Mantenimiento preventivo programado
                 """)
                 
                 FALLAS_ST = [
                     "No enciende",
-                    "Falla elÃ©ctrica",
-                    "Problema mecÃ¡nico",
+                    "Falla eléctrica",
+                    "Problema mecánico",
                     "Ruidos anormales",
-                    "PÃ©rdida de precisiÃ³n",
-                    "Necesita calibraciÃ³n",
+                    "Pérdida de precisión",
+                    "Necesita calibración",
                     "Desgaste de piezas",
                     "Mantenimiento preventivo",
                     "Falla en display/pantalla",
@@ -2579,9 +2577,9 @@ def main():
                     key=f"fallas_st_{st.session_state.form_key}"
                 )
                 
-                # Mostrar resumen de selecciÃ³n
+                # Mostrar resumen de selección
                 if fallas_seleccionadas:
-                    st.success(f"âœ… {len(fallas_seleccionadas)} falla(s) seleccionada(s)")
+                    st.success(f"✅ {len(fallas_seleccionadas)} falla(s) seleccionada(s)")
                 
                 detalle_fallo = st.text_area(
                     "Otros problemas o detalles adicionales",
@@ -2590,28 +2588,28 @@ def main():
                     height=100
                 )
             
-            # ASISTENCIA TÃ‰CNICA
+            # ASISTENCIA TÉCNICA
             elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-                st.markdown("#### Consultas de Asistencia TÃ©cnica")
+                st.markdown("#### Consultas de Asistencia Técnica")
                 st.info("""
-                **Â¿CuÃ¡ndo solicitar Asistencia TÃ©cnica?**
-                - Dudas sobre el uso del equipo o configuraciÃ³n inicial.
-                - Solicitud de capacitaciÃ³n
-                - Consulta sobre garantÃ­a
-                - Solicitud de manuales o documentaciÃ³n
+                **¿Cuándo solicitar Asistencia Técnica?**
+                - Dudas sobre el uso del equipo o configuración inicial.
+                - Solicitud de capacitación
+                - Consulta sobre garantía
+                - Solicitud de manuales o documentación
                 - Accesorios o repuestos
-                - ActualizaciÃ³n de software
+                - Actualización de software
                 """)
                 
                 CONSULTAS_PV = [
                     "Consulta sobre uso del equipo",
-                    "Solicitud de capacitaciÃ³n",
-                    "Consulta sobre garantÃ­a",
-                    "Solicitud de manual/documentaciÃ³n",
+                    "Solicitud de capacitación",
+                    "Consulta sobre garantía",
+                    "Solicitud de manual/documentación",
                     "Necesito accesorios",
                     "Necesito repuestos",
-                    "ActualizaciÃ³n de software",
-                    "ConfiguraciÃ³n inicial"
+                    "Actualización de software",
+                    "Configuración inicial"
                 ]
                 
                 fallas_seleccionadas = st.multiselect(
@@ -2620,9 +2618,9 @@ def main():
                     key=f"consulta_pv_{st.session_state.form_key}"
                 )
                 
-                # Mostrar resumen de selecciÃ³n
+                # Mostrar resumen de selección
                 if fallas_seleccionadas:
-                    st.success(f"âœ… {len(fallas_seleccionadas)} consulta(s) seleccionada(s)")
+                    st.success(f"✅ {len(fallas_seleccionadas)} consulta(s) seleccionada(s)")
                 
                 detalle_fallo = st.text_area(
                     "Otras consultas o detalles adicionales",
@@ -2631,34 +2629,34 @@ def main():
                     height=100
                 )
             
-            # FALLA CRÃTICA
-            elif motivo == "Cambio por falla de funcionamiento crÃ­tica":
-                st.markdown("#### Falla de Funcionamiento CrÃ­tica")
+            # FALLA CRÍTICA
+            elif motivo == "Cambio por falla de funcionamiento crítica":
+                st.markdown("#### Falla de Funcionamiento Crítica")
                 st.warning("""
-                **Â¿QuÃ© es una falla crÃ­tica?**
+                **¿Qué es una falla crítica?**
                 
-                Una falla crÃ­tica es aquella que impide el uso del equipo de forma segura o efectiva, requiriendo su reemplazo inmediato.
+                Una falla crítica es aquella que impide el uso del equipo de forma segura o efectiva, requiriendo su reemplazo inmediato.
                 
                 **Ejemplos:**                         
                 -El equipo no enciende.      
-                -Hay riesgo elÃ©ctrico, fuego, humo, olor a quemado.    
-                -El equipo se apaga solo o falla en medio de un uso clÃ­nico.                           
-                -El equipo muestra valores errÃ¡ticos que pueden poner en riesgo al paciente.                           
-                -La falla impide totalmente utilizarlo para su funciÃ³n principal.                           
+                -Hay riesgo eléctrico, fuego, humo, olor a quemado.    
+                -El equipo se apaga solo o falla en medio de un uso clínico.                           
+                -El equipo muestra valores erráticos que pueden poner en riesgo al paciente.                           
+                -La falla impide totalmente utilizarlo para su función principal.                           
                 -El problema compromete la seguridad (descargas, piezas sueltas, sobrecalentamiento).
                 """)
                 
                 fallas_seleccionadas = []  # No usar multiselect
                 
                 detalle_fallo = st.text_area(
-                    "Describa la falla crÃ­tica *",
-                    placeholder="Describa detalladamente la falla que justifica el cambio del equipo. Sea especÃ­fico sobre por quÃ© es crÃ­tica.",
+                    "Describa la falla crítica *",
+                    placeholder="Describa detalladamente la falla que justifica el cambio del equipo. Sea específico sobre por qué es crítica.",
                     key=f"falla_critica_{st.session_state.form_key}",
                     height=150
                 )
                                
             diagnostico_paciente = st.text_area(
-                "DiagnÃ³stico del Paciente (si aplica)",
+                "Diagnóstico del Paciente (si aplica)",
                 key=f"diagnostico_{st.session_state.form_key}"
             )
             
@@ -2668,18 +2666,18 @@ def main():
                 'diagnostico_paciente': diagnostico_paciente
             })
         
-       # SECCIÃ“N 7: Motivo de Baja (solo para Baja de Alquiler)
+       # SECCIÓN 7: Motivo de Baja (solo para Baja de Alquiler)
         if motivo == "Baja de Alquiler":
             mostrar_seccion_baja_alquiler(data)
 
-        # SECCIÃ“N 8: Datos de Equipos
-        # Solo mostrar si hay motivo Y NO es un equipo de stock o baja de demo (que ya se mostrÃ³ antes)
+        # SECCIÓN 8: Datos de Equipos
+        # Solo mostrar si hay motivo Y NO es un equipo de stock o baja de demo (que ya se mostró antes)
         if motivo and data.get('equipo_corresponde_a') not in ["Equipo de Stock", "Baja de demo"]:
             mostrar_seccion_equipos(data, contexto="principal")
                 
         
-        # BotÃ³n de envÃ­o
-        # Verificar si hay motivo segÃºn el tipo de solicitante
+        # Botón de envío
+        # Verificar si hay motivo según el tipo de solicitante
         tiene_motivo = False
         
         if quien_completa == "Colaborador de Syemed":
@@ -2693,9 +2691,9 @@ def main():
             
             if not campos_validos:
                 #st.markdown('<div class="error-box">', unsafe_allow_html=True)
-                st.error("âš ï¸ Por favor complete todos los campos obligatorios:")
+                st.error("⚠️ Por favor complete todos los campos obligatorios:")
                 for error in errores_validacion:
-                    st.markdown(f"â€¢ {error}")
+                    st.markdown(f"• {error}")
                 st.markdown('</div>', unsafe_allow_html=True)
             
             # ========== NUEVO: SEGURIDAD ==========
@@ -2711,7 +2709,7 @@ def main():
                     "Enviar Solicitud", 
                     use_container_width=True, 
                     type="primary", 
-                    disabled=not (campos_validos and captcha_valido),  # â† MODIFICADO
+                    disabled=not (campos_validos and captcha_valido),  # ← MODIFICADO
                     key=f"btn_enviar_{st.session_state.form_key}"
                 ):
                     # ========== NUEVO: SEGURIDAD ==========
@@ -2731,40 +2729,40 @@ def main():
                     procesar_formulario(data)
         
         elif not email_valido:
-            st.warning("âš ï¸ Por favor, ingresa un correo electrÃ³nico vÃ¡lido antes de enviar.")
+            st.warning("⚠️ Por favor, ingresa un correo electrónico válido antes de enviar.")
     
     elif email and not email_valido:
-        st.warning("âš ï¸ Por favor, corrige el formato del correo electrÃ³nico para continuar.")
+        st.warning("⚠️ Por favor, corrige el formato del correo electrónico para continuar.")
     else:
-        st.info("â„¹ï¸ Por favor complete el correo electrÃ³nico y seleccione quiÃ©n completa la solicitud para continuar.")
+        st.info("ℹ️ Por favor complete el correo electrónico y seleccione quién completa la solicitud para continuar.")
 
 def mostrar_resumen_y_descarga():
-    """Muestra el resumen despuÃ©s de enviar el formulario"""
+    """Muestra el resumen después de enviar el formulario"""
     st.markdown("""
     <div class="main-header">
-        <h1>âœ… Solicitud Enviada Exitosamente</h1>
+        <h1>✅ Solicitud Enviada Exitosamente</h1>
     </div>
     """, unsafe_allow_html=True)
     
     solicitud_id = st.session_state.get('solicitud_id')
     
-    st.success(f"ðŸŽ‰ Â¡Tu solicitud #{solicitud_id} ha sido registrada correctamente!")
+    st.success(f"🎉 ¡Tu solicitud #{solicitud_id} ha sido registrada correctamente!")
     
-    # Mostrar informaciÃ³n
+    # Mostrar información
     st.info("""
-    ðŸ“§ **Hemos enviado un correo de confirmaciÃ³n** con todos los detalles de tu solicitud.
+    📧 **Hemos enviado un correo de confirmación** con todos los detalles de tu solicitud.
     
-    Nuestro equipo se pondrÃ¡ en contacto contigo a la brevedad.
+    Nuestro equipo se pondrá en contacto contigo a la brevedad.
     """)
     
     st.markdown("---")
     
-    # BotÃ³n de descarga del PDF
+    # Botón de descarga del PDF
     if 'pdf_bytes' in st.session_state:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             st.download_button(
-                label="ðŸ“¥ Descargar PDF de la Solicitud",
+                label="📥 Descargar PDF de la Solicitud",
                 data=st.session_state['pdf_bytes'],
                 file_name=st.session_state['pdf_filename'],
                 mime="application/pdf",
@@ -2774,11 +2772,11 @@ def mostrar_resumen_y_descarga():
     
     st.markdown("---")
     
-    # BotÃ³n para nueva solicitud
+    # Botón para nueva solicitud
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button(
-            "ðŸ“ Crear Nueva Solicitud", 
+            "📝 Crear Nueva Solicitud", 
             use_container_width=True, 
             type="secondary",
             key="btn_nueva_solicitud_final"
@@ -2795,28 +2793,28 @@ def mostrar_resumen_y_descarga():
 
 # Actualizar las funciones de secciones para incluir keys
 def mostrar_seccion_distribuidor(data, es_directo=False):
-    """VERSIÃ“N NUEVA - Reemplaza la funciÃ³n existente"""
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
     st.markdown(f'<div class="section-header"><h2>Distribuidor</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
     
     col1, col2 = st.columns(2)
     with col1:
-        nombre_fantasia = st.text_input("Nombre de FantasÃ­a *", placeholder="Ejemplo: Syemed", key=f"d_nombre_{form_key}")
-        razon_social = st.text_input("RazÃ³n Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"d_razon_{form_key}")
-        cuit_input = st.text_input("CUIT * (solo nÃºmeros)", placeholder="30718343832", key=f"d_cuit_{form_key}", max_chars=11)
+        nombre_fantasia = st.text_input("Nombre de Fantasía *", placeholder="Ejemplo: Syemed", key=f"d_nombre_{form_key}")
+        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"d_razon_{form_key}")
+        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"d_cuit_{form_key}", max_chars=11)
         cuit = validar_solo_numeros(cuit_input)
         if cuit_input and not cuit_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el CUIT")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio TÃ©cnico *", key=f"d_contacto_{form_key}")
+            st.warning("⚠️ Solo se permiten números en el CUIT")
+        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
 
     with col2:
-        telefono_input = st.text_input("TelÃ©fono de contacto * (solo nÃºmeros)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
+        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
         contacto_telefono = validar_solo_numeros(telefono_input)
         if telefono_input and not telefono_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el telÃ©fono")
+            st.warning("⚠️ Solo se permiten números en el teléfono")
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"d_comercial_{form_key}")
-        contacto_tecnico = st.selectbox("Â¿Quiere que lo contactemos desde el Ã¡rea tÃ©cnica? *", ["", "SÃ­", "No"], key=f"d_contacto_tec_{form_key}")
+        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"d_contacto_tec_{form_key}")
     
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -2833,28 +2831,28 @@ def mostrar_seccion_distribuidor(data, es_directo=False):
     data.update(flujo_data)
 
 def mostrar_seccion_distribuidorB(data, es_directo=False):
-    """VERSIÃ“N NUEVA - Reemplaza la funciÃ³n existente"""
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
     st.markdown(f'<div class="section-header"><h2>Ingrese los datos del distribuidor</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
     
     col1, col2 = st.columns(2)
     with col1:
-        nombre_fantasia = st.text_input("Nombre de FantasÃ­a *", placeholder="Ejemplo: Syemed", key=f"db_nombre_{form_key}")
-        razon_social = st.text_input("RazÃ³n Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"db_razon_{form_key}")
-        cuit_input = st.text_input("CUIT * (solo nÃºmeros)", placeholder="30718343832", key=f"db_cuit_{form_key}", max_chars=11)
+        nombre_fantasia = st.text_input("Nombre de Fantasía *", placeholder="Ejemplo: Syemed", key=f"db_nombre_{form_key}")
+        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"db_razon_{form_key}")
+        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"db_cuit_{form_key}", max_chars=11)
         cuit = validar_solo_numeros(cuit_input)
         if cuit_input and not cuit_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el CUIT")
+            st.warning("⚠️ Solo se permiten números en el CUIT")
         
     
     with col2:
-        telefono_input = st.text_input("TelÃ©fono de contacto * (solo nÃºmeros)", placeholder="1123730278", key=f"db_tel_{form_key}", max_chars=15)
+        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"db_tel_{form_key}", max_chars=15)
         contacto_telefono = validar_solo_numeros(telefono_input)
         if telefono_input and not telefono_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el telÃ©fono")
-        contacto_tecnico = st.selectbox("Â¿Quiere que lo contactemos desde el Ã¡rea tÃ©cnica? *", ["", "SÃ­", "No"], key=f"db_contacto_tec_{form_key}")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio TÃ©cnico *", key=f"db_contacto_{form_key}")
+            st.warning("⚠️ Solo se permiten números en el teléfono")
+        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"db_contacto_tec_{form_key}")
+        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"db_contacto_{form_key}")
 
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -2871,28 +2869,28 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
 
 
 def mostrar_seccion_institucion(data, es_directo=False):
-    """VERSIÃ“N NUEVA - Reemplaza la funciÃ³n existente"""
-    st.markdown(f'<div class="section-header"><h2>InstituciÃ³n</h2></div>', unsafe_allow_html=True)
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
+    st.markdown(f'<div class="section-header"><h2>Institución</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
     
     col1, col2 = st.columns(2)
     with col1:
-        nombre_fantasia = st.text_input("Nombre del Hospital/ClÃ­nica/Sanatorio *", key=f"i_nombre_{form_key}")
-        razon_social = st.text_input("RazÃ³n Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"i_razon_{form_key}")
-        cuit_input = st.text_input("CUIT (solo nÃºmeros)", placeholder="30718343832", key=f"i_cuit_{form_key}", max_chars=11)
+        nombre_fantasia = st.text_input("Nombre del Hospital/Clínica/Sanatorio *", key=f"i_nombre_{form_key}")
+        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"i_razon_{form_key}")
+        cuit_input = st.text_input("CUIT (solo números)", placeholder="30718343832", key=f"i_cuit_{form_key}", max_chars=11)
         cuit = validar_solo_numeros(cuit_input)
         if cuit_input and not cuit_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el CUIT")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio TÃ©cnico *", key=f"i_contacto_{form_key}")
+            st.warning("⚠️ Solo se permiten números en el CUIT")
+        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"i_contacto_{form_key}")
     
     with col2:
-        telefono_input = st.text_input("TelÃ©fono de contacto * (solo nÃºmeros)", placeholder="1123730278", key=f"i_tel_{form_key}", max_chars=15)
+        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"i_tel_{form_key}", max_chars=15)
         contacto_telefono = validar_solo_numeros(telefono_input)
         if telefono_input and not telefono_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el telÃ©fono")
+            st.warning("⚠️ Solo se permiten números en el teléfono")
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"i_comercial_{form_key}")
-        contacto_tecnico = st.selectbox("Â¿Quiere que lo contactemos desde el Ã¡rea tÃ©cnica? *", ["", "SÃ­", "No"], key=f"i_contacto_tec_{form_key}")
+        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"i_contacto_tec_{form_key}")
     
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -2910,28 +2908,28 @@ def mostrar_seccion_institucion(data, es_directo=False):
 
 
 def mostrar_seccion_institucionB(data, es_directo=False):
-    """VERSIÃ“N NUEVA - Reemplaza la funciÃ³n existente"""
-    st.markdown(f'<div class="section-header"><h2>Ingrese los datos de la InstituciÃ³n</h2></div>', unsafe_allow_html=True)
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
+    st.markdown(f'<div class="section-header"><h2>Ingrese los datos de la Institución</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
     
     col1, col2 = st.columns(2)
     with col1:
-        nombre_fantasia = st.text_input("Nombre del Hospital/ClÃ­nica/Sanatorio *", key=f"ib_nombre_{form_key}")
-        razon_social = st.text_input("RazÃ³n Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"ib_razon_{form_key}")
-        cuit_input = st.text_input("CUIT * (solo nÃºmeros)", placeholder="30718343832", key=f"ib_cuit_{form_key}", max_chars=11)
+        nombre_fantasia = st.text_input("Nombre del Hospital/Clínica/Sanatorio *", key=f"ib_nombre_{form_key}")
+        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"ib_razon_{form_key}")
+        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"ib_cuit_{form_key}", max_chars=11)
         cuit = validar_solo_numeros(cuit_input)
         if cuit_input and not cuit_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el CUIT")
+            st.warning("⚠️ Solo se permiten números en el CUIT")
         
     
     with col2:
-        telefono_input = st.text_input("TelÃ©fono de contacto * (solo nÃºmeros)", placeholder="1123730278", key=f"ib_tel_{form_key}", max_chars=15)
+        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"ib_tel_{form_key}", max_chars=15)
         contacto_telefono = validar_solo_numeros(telefono_input)
         if telefono_input and not telefono_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el telÃ©fono")
-        contacto_tecnico = st.selectbox("Â¿Quiere que lo contactemos desde el Ã¡rea tÃ©cnica? *", ["", "SÃ­", "No"], key=f"ib_contacto_tec_{form_key}")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio TÃ©cnico *", key=f"ib_contacto_{form_key}")
+            st.warning("⚠️ Solo se permiten números en el teléfono")
+        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"ib_contacto_tec_{form_key}")
+        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"ib_contacto_{form_key}")
     
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -2960,18 +2958,18 @@ def mostrar_seccion_paciente(data, es_directo=False):
     
     with col1:
         nombre_apellido = st.text_input("Nombre y Apellido *", key=f"p_nombreyapellido_{form_key}" )
-        telefono_input = st.text_input("TelÃ©fono de contacto * (solo nÃºmeros)", placeholder="1123730278", key=f"p_telefono_{form_key}", max_chars=15)
+        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"p_telefono_{form_key}", max_chars=15)
         telefono = validar_solo_numeros(telefono_input)
         if telefono_input and not telefono_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el telÃ©fono")
+            st.warning("⚠️ Solo se permiten números en el teléfono")
         
     with col2:
-        equipo_origen = st.selectbox("El equipo... *", ["", "Lo comprÃ³ de manera directa", "Se lo entregaron"], key=f"p_equipoorigen_{form_key}" )
+        equipo_origen = st.selectbox("El equipo... *", ["", "Lo compró de manera directa", "Se lo entregaron"], key=f"p_equipoorigen_{form_key}" )
         quien_entrego = ""
         if equipo_origen == "Se lo entregaron":
-            quien_entrego = st.text_area("Â¿QuiÃ©n lo entregÃ³?", placeholder="Obra Social, Distribuidor, Ortopedia, Plataformas Digitales, etc.", key=f"p_quienentrego_{form_key}" )
+            quien_entrego = st.text_area("¿Quién lo entregó?", placeholder="Obra Social, Distribuidor, Ortopedia, Plataformas Digitales, etc.", key=f"p_quienentrego_{form_key}" )
         
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio TÃ©cnico (reparaciones de equipos en general)", "Servicio de Asistencia TÃ©cnica (para nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crÃ­tica"], key=f"p_motivosolicitud_{form_key}")
+        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"p_motivosolicitud_{form_key}")
         # Normalizar el valor para compatibilidad con BD
         motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
     
@@ -2983,14 +2981,14 @@ def mostrar_seccion_paciente(data, es_directo=False):
         'motivo_solicitud': motivo_solicitud
     })
 def mostrar_seccion_baja_alquiler(data):
-    """Muestra la secciÃ³n condicional para motivo de baja en alquileres"""
+    """Muestra la sección condicional para motivo de baja en alquileres"""
     st.markdown('<div class="section-header"><h2>Motivo de Baja de Alquiler</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
     
     fin_contrato = st.selectbox(
-        "Â¿Es por fin de contrato? *",
-        ["", "SÃ­", "No"],
+        "¿Es por fin de contrato? *",
+        ["", "Sí", "No"],
         key=f"fin_contrato_{form_key}"
     )
     
@@ -3001,14 +2999,14 @@ def mostrar_seccion_baja_alquiler(data):
     observacion_baja = ""
     estado_equipo = ""
     
-    if fin_contrato == "SÃ­":
+    if fin_contrato == "Sí":
         equipo_falla = st.selectbox(
-            "Â¿El equipo falla? *",
-            ["", "SÃ­", "No"],
+            "¿El equipo falla? *",
+            ["", "Sí", "No"],
             key=f"equipo_falla_fin_{form_key}"
         )
         
-        if equipo_falla == "SÃ­":
+        if equipo_falla == "Sí":
             tipo_falla = st.text_area(
                 "Describa el tipo de falla *",
                 height=100,
@@ -3024,12 +3022,12 @@ def mostrar_seccion_baja_alquiler(data):
     
     elif fin_contrato == "No":
         equipo_falla = st.selectbox(
-            "Â¿El equipo falla? *",
-            ["", "SÃ­", "No"],
+            "¿El equipo falla? *",
+            ["", "Sí", "No"],
             key=f"equipo_falla_no_fin_{form_key}"
         )
         
-        if equipo_falla == "SÃ­":
+        if equipo_falla == "Sí":
             tipo_falla = st.text_area(
                 "Describa el tipo de falla *",
                 height=100,
@@ -3065,27 +3063,27 @@ def mostrar_seccion_equipos(data, contexto="general"):
     
     form_key = st.session_state.form_key
     
-    # Verificar si el motivo permite mÃºltiples equipos
+    # Verificar si el motivo permite múltiples equipos
     motivo_solicitud = data.get('motivo_solicitud', '')
     permite_multiples = motivo_solicitud in ["Baja de Alquiler", "Cambio de Alquiler", "Equipo de Stock", "Baja de demo"]
     
-    # Solo mostrar opciÃ³n de modo de carga si estÃ¡ permitido
+    # Solo mostrar opción de modo de carga si está permitido
     if permite_multiples:
         modo_carga = st.radio(
-            "Â¿CÃ³mo desea cargar los equipos?",
-            ["Equipos individuales (diferentes caracterÃ­sticas)", "MÃºltiples equipos similares (mismo tipo, marca, modelo)"],
+            "¿Cómo desea cargar los equipos?",
+            ["Equipos individuales (diferentes características)", "Múltiples equipos similares (mismo tipo, marca, modelo)"],
             index=0,
             key=f"modo_carga_{contexto}_{form_key}"
         )
     else:
         # Forzar modo individual para otros motivos
-        modo_carga = "Equipos individuales (diferentes caracterÃ­sticas)"
+        modo_carga = "Equipos individuales (diferentes características)"
 
     
     equipos = []
     
-    if modo_carga == "Equipos individuales (diferentes caracterÃ­sticas)":
-        num_equipos = st.number_input("Â¿CuÃ¡ntos equipos desea registrar?", min_value=1, max_value=100, value=1, key=f"num_equipos_{contexto}_{form_key}")
+    if modo_carga == "Equipos individuales (diferentes características)":
+        num_equipos = st.number_input("¿Cuántos equipos desea registrar?", min_value=1, max_value=100, value=1, key=f"num_equipos_{contexto}_{form_key}")
         
         for i in range(num_equipos):
             st.markdown(f'<div class="equipment-section"><h3>Equipo {i+1}</h3>', unsafe_allow_html=True)
@@ -3097,18 +3095,18 @@ def mostrar_seccion_equipos(data, contexto="general"):
                 
             with col2:
                 modelo_equipo = st.selectbox(f"Modelo de Equipo ({i+1}) *", MODELOS_EQUIPO, key=f"modelo_{contexto}_{i}_{form_key}")
-                numero_serie = st.text_input(f"NÃºmero de Serie ({i+1}) *", key=f"serie_{contexto}_{i}_{form_key}")
+                numero_serie = st.text_input(f"Número de Serie ({i+1}) *", key=f"serie_{contexto}_{i}_{form_key}")
                 
-                # CAMBIO: Obtener garantÃ­a desde InformaciÃ³n del Equipo (data)
-                # Ya no se pregunta aquÃ­, se obtiene de la secciÃ³n anterior
+                # CAMBIO: Obtener garantía desde Información del Equipo (data)
+                # Ya no se pregunta aquí, se obtiene de la sección anterior
                 en_garantia_global = data.get('en_garantia', None)
                 
-                # Determinar si estÃ¡ en garantÃ­a desde data
-                if en_garantia_global == "SÃ­":
-                    en_garantia = "SÃ­"
-                    # La fecha de compra y factura se cargan en "InformaciÃ³n del Equipo", no aquÃ­
+                # Determinar si está en garantía desde data
+                if en_garantia_global == "Sí":
+                    en_garantia = "Sí"
+                    # La fecha de compra y factura se cargan en "Información del Equipo", no aquí
                     fecha_compra = data.get('fecha_compra', None)
-                    factura_archivo = None  # Ya no se carga aquÃ­
+                    factura_archivo = None  # Ya no se carga aquí
                 else:
                     en_garantia = "No"
                     fecha_compra = None
@@ -3117,16 +3115,16 @@ def mostrar_seccion_equipos(data, contexto="general"):
             # Fotos/videos de fallas por equipo
             motivo = data.get('motivo_solicitud', '')
             fotos_equipo = []
-            if motivo in ["Servicio TÃ©cnico (reparaciones de equipos en general)", 
+            if motivo in ["Servicio Técnico (reparaciones de equipos en general)", 
               "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
-              "Cambio por falla de funcionamiento crÃ­tica"]:
-                st.markdown(f"**ðŸ“¸ Fotos/videos de fallas del Equipo {i+1}** (opcional)")
+              "Cambio por falla de funcionamiento crítica"]:
+                st.markdown(f"**📸 Fotos/videos de fallas del Equipo {i+1}** (opcional)")
                 fotos_equipo_raw = st.file_uploader(
                     f"Adjunte fotos o videos del problema del Equipo {i+1}",
                     type=['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'mkv'],
                     accept_multiple_files=True,
                     key=f"fotos_equipo_{contexto}_{i}_{form_key}",
-                    help="Puede adjuntar mÃºltiples archivos del mismo equipo (incluyendo imÃ¡genes de WhatsApp)"
+                    help="Puede adjuntar múltiples archivos del mismo equipo (incluyendo imágenes de WhatsApp)"
                 )
                 if fotos_equipo_raw:
                     for archivo in fotos_equipo_raw:
@@ -3136,9 +3134,9 @@ def mostrar_seccion_equipos(data, contexto="general"):
                         if extension_real in extensiones_validas:
                             fotos_equipo.append(archivo)
                         else:
-                            st.warning(f"âš ï¸ Archivo '{archivo.name}' no tiene una extensiÃ³n vÃ¡lida")
+                            st.warning(f"⚠️ Archivo '{archivo.name}' no tiene una extensión válida")
                 if fotos_equipo:
-                    st.info(f"ðŸ“Ž {len(fotos_equipo)} archivo(s) para este equipo")
+                    st.info(f"📎 {len(fotos_equipo)} archivo(s) para este equipo")
 
             # ==============================================================
             
@@ -3147,21 +3145,21 @@ def mostrar_seccion_equipos(data, contexto="general"):
                 'marca': marca_equipo,
                 'modelo': modelo_equipo,
                 'numero_serie': numero_serie,
-                'en_garantia': en_garantia == "SÃ­",
+                'en_garantia': en_garantia == "Sí",
                 'fecha_compra': fecha_compra,
-                'fotos_fallas': fotos_equipo  # â† NUEVO
+                'fotos_fallas': fotos_equipo  # ← NUEVO
             })
             
             st.markdown('</div>', unsafe_allow_html=True)
     
     else:
-        # Modo mÃºltiples equipos similares
-        st.markdown('<div class="equipment-section"><h3>InformaciÃ³n ComÃºn de los Equipos</h3>', unsafe_allow_html=True)
+        # Modo múltiples equipos similares
+        st.markdown('<div class="equipment-section"><h3>Información Común de los Equipos</h3>', unsafe_allow_html=True)
         
         # Mensaje informativo sobre fotos/videos deshabilitados
         motivo_solicitud = data.get('motivo_solicitud', '')
         if motivo_solicitud in ["Baja de Alquiler", "Cambio de Alquiler", "Equipo de Stock", "Baja de demo"]:
-            st.info("â„¹ï¸ Al cargar mÃºltiples equipos a la vez, puede listar todos los nÃºmeros de serie con saltos de lÃ­nea a o comas.")
+            st.info("ℹ️ Al cargar múltiples equipos a la vez, puede listar todos los números de serie con saltos de línea a o comas.")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -3171,42 +3169,42 @@ def mostrar_seccion_equipos(data, contexto="general"):
         with col2:
             marca_equipo_comun = st.selectbox("Marca de Equipo *", MARCAS_EQUIPO, key=f"marca_comun_{contexto}_{form_key}")
             
-            # CAMBIO: Obtener garantÃ­a desde InformaciÃ³n del Equipo (data)
+            # CAMBIO: Obtener garantía desde Información del Equipo (data)
             en_garantia_global = data.get('en_garantia', None)
             
-            if en_garantia_global == "SÃ­":
-                en_garantia_comun = "SÃ­"
+            if en_garantia_global == "Sí":
+                en_garantia_comun = "Sí"
             else:
                 en_garantia_comun = "No"
         
-        # La fecha de compra y factura se cargan en "InformaciÃ³n del Equipo", no aquÃ­
+        # La fecha de compra y factura se cargan en "Información del Equipo", no aquí
         fecha_compra_comun = data.get('fecha_compra', None)
-        factura_comun = None  # Ya no se carga aquÃ­
+        factura_comun = None  # Ya no se carga aquí
         
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # NÃºmeros de serie
-        st.markdown('<div class="equipment-section"><h3>NÃºmeros de Serie</h3>', unsafe_allow_html=True)
+        # Números de serie
+        st.markdown('<div class="equipment-section"><h3>Números de Serie</h3>', unsafe_allow_html=True)
         
         metodo_serie = st.radio(
-            "Â¿CÃ³mo desea ingresar los nÃºmeros de serie?",
-            ["Uno por uno", "Lista separada por comas/saltos de lÃ­nea"],
+            "¿Cómo desea ingresar los números de serie?",
+            ["Uno por uno", "Lista separada por comas/saltos de línea"],
             key=f"metodo_serie_{contexto}_{form_key}"
         )
         
         numeros_serie = []
         
         if metodo_serie == "Uno por uno":
-            num_series = st.number_input("Â¿CuÃ¡ntos nÃºmeros de serie?", min_value=1, max_value=100, value=1, key=f"num_series_{contexto}_{form_key}")
+            num_series = st.number_input("¿Cuántos números de serie?", min_value=1, max_value=100, value=1, key=f"num_series_{contexto}_{form_key}")
             
             for i in range(num_series):
-                serie = st.text_input(f"NÃºmero de Serie {i+1} *", key=f"serie_multiple_{contexto}_{i}_{form_key}")
+                serie = st.text_input(f"Número de Serie {i+1} *", key=f"serie_multiple_{contexto}_{i}_{form_key}")
                 if serie.strip():
                     numeros_serie.append(serie.strip())
         
         else:
             series_texto = st.text_area(
-                "Ingrese todos los nÃºmeros de serie separados por comas o saltos de lÃ­nea *",
+                "Ingrese todos los números de serie separados por comas o saltos de línea *",
                 height=150,
                 placeholder="Ejemplo:\nSYE001\nSYE002, SYE003\nSYE004",
                 key=f"series_masivo_{contexto}_{form_key}"
@@ -3221,16 +3219,16 @@ def mostrar_seccion_equipos(data, contexto="general"):
                 ]
                 
                 if numeros_serie:
-                    st.info(f"Se detectaron {len(numeros_serie)} nÃºmeros de serie:")
+                    st.info(f"Se detectaron {len(numeros_serie)} números de serie:")
                     num_cols = min(3, len(numeros_serie))
                     cols = st.columns(num_cols)
                     
                     for i, serie in enumerate(numeros_serie[:15]):
                         with cols[i % num_cols]:
-                            st.text(f"â€¢ {serie}")
+                            st.text(f"• {serie}")
                     
                     if len(numeros_serie) > 15:
-                        st.text(f"... y {len(numeros_serie) - 15} mÃ¡s")
+                        st.text(f"... y {len(numeros_serie) - 15} más")
         
         # Crear equipos
         for numero_serie in numeros_serie:
@@ -3240,19 +3238,19 @@ def mostrar_seccion_equipos(data, contexto="general"):
                     'marca': marca_equipo_comun,
                     'modelo': modelo_equipo_comun,
                     'numero_serie': numero_serie,
-                    'en_garantia': en_garantia_comun == "SÃ­",
+                    'en_garantia': en_garantia_comun == "Sí",
                     'fecha_compra': fecha_compra_comun
                 })
         
         st.markdown('</div>', unsafe_allow_html=True)
         
         if equipos:
-            st.success(f"âœ… Total de equipos que se registrarÃ¡n: **{len(equipos)}**")
+            st.success(f"✅ Total de equipos que se registrarán: **{len(equipos)}**")
     
     data['equipos'] = equipos
 
 def mostrar_seccion_paciente(data, es_directo=False):
-    """VERSIÃ“N NUEVA - Reemplaza la funciÃ³n existente"""
+    """VERSIÓN NUEVA - Reemplaza la función existente"""
     st.markdown(f'<div class="section-header"><h2>Paciente/Particular</h2></div>', unsafe_allow_html=True)
     
     form_key = st.session_state.form_key
@@ -3263,10 +3261,10 @@ def mostrar_seccion_paciente(data, es_directo=False):
         nombre_apellido = st.text_input("Nombre y Apellido *", key=f"p_nombreyapellido_{form_key}")
         
     with col2:
-        telefono_input = st.text_input("TelÃ©fono de contacto * (solo nÃºmeros)", placeholder="1123730278", key=f"p_telefono_{form_key}", max_chars=15)
+        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"p_telefono_{form_key}", max_chars=15)
         telefono = validar_solo_numeros(telefono_input)
         if telefono_input and not telefono_input.isdigit():
-            st.warning("âš ï¸ Solo se permiten nÃºmeros en el telÃ©fono")
+            st.warning("⚠️ Solo se permiten números en el teléfono")
     
     data.update({
         'nombre_apellido_paciente': nombre_apellido,
@@ -3306,7 +3304,7 @@ def procesar_formulario(data):
                             'tamano': archivo.size
                         })
         
-        # MODIFICADO: Subir factura desde factura_garantia (capturada en InformaciÃ³n del Equipo)
+        # MODIFICADO: Subir factura desde factura_garantia (capturada en Información del Equipo)
         # Esta factura es la misma para todos los equipos
         factura_url_global = None
         if 'factura_garantia' in data and data['factura_garantia']:
@@ -3330,11 +3328,11 @@ def procesar_formulario(data):
     data['archivos_urls'] = urls_archivos
     
     # 1. GUARDAR SOLICITUD EN BD PRIMERO (sin PDF)
-    with st.spinner("ðŸ’¾ Guardando solicitud en base de datos..."):
+    with st.spinner("💾 Guardando solicitud en base de datos..."):
         exito, resultado, equipos_osts = insertar_solicitud(data, pdf_url=None)
     
     if not exito:
-        st.error(f"âŒ Error al guardar la solicitud: {resultado}")
+        st.error(f"❌ Error al guardar la solicitud: {resultado}")
         return
     
     solicitud_id = resultado
@@ -3344,23 +3342,23 @@ def procesar_formulario(data):
     # Mostrar OSTs generados si existen
     if equipos_osts:
         osts_texto = ', '.join([f'#{ost}' for ost in equipos_osts])
-        st.success(f"âœ… Solicitud #{solicitud_id} guardada correctamente! OST(s): {osts_texto}")
+        st.success(f"✅ Solicitud #{solicitud_id} guardada correctamente! OST(s): {osts_texto}")
     else:
-        st.success(f"âœ… Solicitud #{solicitud_id} guardada correctamente!")
+        st.success(f"✅ Solicitud #{solicitud_id} guardada correctamente!")
     
     # 2. GENERAR PDF CON EL ID CORRECTO Y LOS OSTs
     try:
-        with st.spinner("ðŸ“„ Generando PDF..."):
+        with st.spinner("📄 Generando PDF..."):
             pdf_bytes = generar_pdf_solicitud(data, solicitud_id=solicitud_id, equipos_osts=equipos_osts)
             pdf_filename = f"solicitud_ST_{solicitud_id}_{ahora_buenos_aires().strftime('%Y%m%d_%H%M%S')}.pdf"
     except Exception as e:
-        st.error(f"âŒ Error al generar PDF: {e}")
+        st.error(f"❌ Error al generar PDF: {e}")
         return
     
     # 3. SUBIR PDF A CLOUDINARY Y ACTUALIZAR BD
     pdf_url = None
     try:
-        with st.spinner("â˜ï¸ Subiendo PDF a la nube..."):
+        with st.spinner("☁️ Subiendo PDF a la nube..."):
             exito_pdf, resultado_pdf = subir_pdf_bytes_cloudinary(
                 pdf_bytes=pdf_bytes,
                 nombre_archivo=pdf_filename.replace('.pdf', ''),
@@ -3380,22 +3378,22 @@ def procesar_formulario(data):
                     )
                     conn.commit()
                     cursor.close()
-                    st.success("âœ… PDF guardado en la nube")
+                    st.success("✅ PDF guardado en la nube")
                 except Exception as e:
                     if conn:
                         conn.rollback()
-                    st.warning(f"âš ï¸ Error al actualizar PDF en BD: {e}")
+                    st.warning(f"⚠️ Error al actualizar PDF en BD: {e}")
                 finally:
                     if conn:
                         conn.close()
             else:
-                st.warning(f"âš ï¸ No se pudo guardar PDF: {resultado_pdf}")
+                st.warning(f"⚠️ No se pudo guardar PDF: {resultado_pdf}")
     except Exception as e:
-        st.warning(f"âš ï¸ Error al subir PDF: {e}")
+        st.warning(f"⚠️ Error al subir PDF: {e}")
     
-    # Mostrar link al PDF si se guardÃ³
+    # Mostrar link al PDF si se guardó
     if pdf_url:
-        st.info(f"ðŸ“„ PDF disponible en: {pdf_url[:60]}...")
+        st.info(f"📄 PDF disponible en: {pdf_url[:60]}...")
     
     # Guardar PDF en session_state para descarga
     st.session_state['pdf_bytes'] = pdf_bytes
@@ -3403,7 +3401,7 @@ def procesar_formulario(data):
     
     # 4. ENVIAR EMAIL CON PDF
     try:
-        with st.spinner("ðŸ“§ Enviando confirmaciÃ³n por email..."):
+        with st.spinner("📧 Enviando confirmación por email..."):
             email_enviado, mensaje_email = enviar_email_con_pdf(
                 destinatario=data.get('email'),
                 solicitud_id=solicitud_id,
@@ -3413,12 +3411,12 @@ def procesar_formulario(data):
             )
             
             if email_enviado:
-                st.success("âœ… Email de confirmaciÃ³n enviado")
+                st.success("✅ Email de confirmación enviado")
             else:
-                st.warning(f"âš ï¸ {mensaje_email}")
+                st.warning(f"⚠️ {mensaje_email}")
                 st.info("La solicitud fue guardada correctamente.")
     except Exception as e:
-        st.warning(f"âš ï¸ Error al enviar email: {e}")
+        st.warning(f"⚠️ Error al enviar email: {e}")
         st.info("La solicitud fue guardada correctamente.")
     
     st.rerun()
