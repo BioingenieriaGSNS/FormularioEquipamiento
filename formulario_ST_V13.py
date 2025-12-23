@@ -443,6 +443,7 @@ def validar_campos_obligatorios(data):
                 errores.append("Nombre y Apellido (Paciente) es obligatorio")
             if not data.get('telefono_paciente'):
                 errores.append("Teléfono (Paciente) es obligatorio")
+            # Validar origen según tipo de usuario
             if st.session_state.get('tipo_usuario') == "Paciente":
                 if not data.get('equipo_origen'):
                     errores.append("Origen del equipo (Paciente) es obligatorio")
