@@ -3227,7 +3227,7 @@ def mostrar_seccion_equipos(data, contexto="general"):
                     for i in range(cantidad):
                         ns = st.text_input(
                             f"N° Serie {i+1} (opcional)",
-                            value=grupo.get('numeros_serie', [{}])[i].get('valor', '') if i < len(grupo.get('numeros_serie', [])) else '',
+                            value=grupo.get('numeros_serie', [])[i] if i < len(grupo.get('numeros_serie', [])) else '',
                             key=f"ns_individual_grupo_{contexto}_{idx}_{i}_{form_key}"
                         )
                         if ns.strip():
