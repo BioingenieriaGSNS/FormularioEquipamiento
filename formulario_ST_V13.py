@@ -333,7 +333,11 @@ MODELOS_EQUIPO = [
 ]
 
 COMERCIALES = ["Seleccionar comercial...", "Ariel", "Clara", "Diana", "Francesca", "Isabel", "Lucas", "Miguel"]
-SOLICITANTES_INTERNOS = ["Seleccionar solicitante...", "Ariel",  "Clara", "Daiana", "Diana", "Facundo", "Francesca", "Isabel", "Lucas", "Miguel", "Rubén", "Tomás"]
+SOLICITANTES_INTERNOS = ["Seleccionar solicitante...", "Ariel",  "Clara", "Daiana",  "Francesca", "Isabel", "Lucas", "Miguel" ]
+TPN = ["Seleccionar solicitante...","Diana", "Olga"]
+LOGISTICA = ["Seleccionar solicitante...", "Facundo","Rubén", "Valentin"] 
+COMEX = [ "Tomás"]
+SERVTEC =["Seleccionar solicitante...","Diego","Joel","Jorge","Sofía"]
 
 FALLAS_PROBLEMAS = [
     "El equipo no muestra ningún signo de falla pero no funciona",
@@ -638,12 +642,20 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         else:  # 4-5
             nivel_urgencia_texto = f"Alto ({nivel_urgencia_num})"
         
+        # Preparar comentarios como Paragraph para mejor formato de textos largos
+        comentarios_texto = data.get('comentarios_caso', 'N/A')
+        # Verificar si hay contenido real (no solo espacios)
+        if comentarios_texto and comentarios_texto.strip() and comentarios_texto != 'N/A':
+            comentarios_paragraph = Paragraph(comentarios_texto, estilo_normal)
+        else:
+            comentarios_paragraph = 'N/A'
+        
         info_general.extend([
             ["Área solicitante:", data.get('area_solicitante', 'N/A')],
             ["Solicitante:", data.get('solicitante', 'N/A')],
             ["Nivel de Urgencia:", nivel_urgencia_texto],
             ["Logística a cargo:", data.get('logistica_cargo', 'N/A')],
-            ["Comentarios del caso:", data.get('comentarios_caso', 'N/A')],
+            ["Comentarios del caso:", comentarios_paragraph],
         ])
         
         tabla_info = Table(info_general, colWidths=[2*inch, 4*inch])
@@ -651,6 +663,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8f4f8')),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # Alinear contenido arriba
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
@@ -2331,9 +2344,19 @@ def normalizar_motivo_solicitud(motivo_texto):
 
 
 def main():
-    # Inicializar form_key si no existe
+    # Inicializar form_key si no existe - usar timestamp para garantizar unicidad por sesión
     if 'form_key' not in st.session_state:
-        st.session_state.form_key = 0
+        import time
+        st.session_state.form_key = int(time.time())
+    
+    # Inicializar bandera de sesión limpia
+    if 'session_initialized' not in st.session_state:
+        st.session_state.session_initialized = True
+        # Si es una nueva sesión, limpiar cualquier residuo
+        keys_to_clean = [k for k in st.session_state.keys() 
+                        if k.startswith(('fotos_', 'facturas_', 'factura_'))]
+        for key in keys_to_clean:
+            del st.session_state[key]
     
     # Si el formulario fue enviado, mostrar solo el resumen
     if st.session_state.get('formulario_enviado', False):
@@ -2438,17 +2461,42 @@ def main():
             with col1:
                 area_solicitante = st.selectbox(
                     "Área Solicitante *", 
-                    ["", "Comercial", "Comex", "Logística/Depósito"],
+                    ["", "Comercial", "Comex", "Logística/Depósito","Terapia de Presión Negativa","Servicio Técnico"],
                     key=f"area_{st.session_state.form_key}"
                 )
                 
             
             with col2:
-                solicitante = st.selectbox(
-                    "Solicitante *", 
-                    SOLICITANTES_INTERNOS,
-                    key=f"solicitante_{st.session_state.form_key}"
-                )
+                if area_solicitante == "Terapia de Presión Negativa":
+                    solicitante = st.selectbox(
+                        "Solicitante *", 
+                        TPN,
+                        key=f"solicitante_{st.session_state.form_key}"
+                    )
+                elif area_solicitante == "Logística/Depósito":
+                    solicitante = st.selectbox(
+                        "Solicitante *", 
+                        LOGISTICA,
+                        key=f"solicitante_{st.session_state.form_key}"
+                    )
+                elif area_solicitante == "Comex":
+                    solicitante = st.selectbox(
+                        "Solicitante *", 
+                        COMEX,
+                        key=f"solicitante_{st.session_state.form_key}"
+                    )
+                elif area_solicitante == "Servicio Técnico":
+                    solicitante = st.selectbox(
+                        "Solicitante *", 
+                        SERVTEC,
+                        key=f"solicitante_{st.session_state.form_key}"
+                    )
+                else:
+                    solicitante = st.selectbox(
+                        "Solicitante *", 
+                        SOLICITANTES_INTERNOS,
+                        key=f"solicitante_{st.session_state.form_key}"
+                    )  
 
             nivel_urgencia = st.slider(
                 "Nivel de Urgencia *", 
@@ -2782,13 +2830,14 @@ def mostrar_resumen_y_descarga():
             type="secondary",
             key="btn_nueva_solicitud_final"
         ):
-            # Limpiar session_state y aumentar form_key
-            keys_to_delete = [k for k in st.session_state.keys() if k != 'form_key']
-            for key in keys_to_delete:
+            # Limpiar COMPLETAMENTE session_state
+            for key in list(st.session_state.keys()):
                 del st.session_state[key]
             
-            # Incrementar form_key para regenerar todos los widgets
-            st.session_state.form_key += 1
+            # Reinicializar con nuevo timestamp para forzar regeneración de todos los widgets
+            import time
+            st.session_state.form_key = int(time.time())
+            st.session_state.session_initialized = True
             st.rerun()
 
 
