@@ -419,10 +419,6 @@ def validar_campos_obligatorios(data):
                 errores.append("Razón Social (Distribuidor) es obligatorio")
             if not data.get('cuit'):
                 errores.append("CUIT (Distribuidor) es obligatorio")
-            if not data.get('contacto_nombre'):
-                errores.append("Nombre de contacto (Distribuidor) es obligatorio")
-            if not data.get('contacto_telefono'):
-                errores.append("Teléfono de contacto (Distribuidor) es obligatorio")
             if not data.get('contacto_tecnico'):
                 errores.append("Debe indicar si quiere contacto técnico (Distribuidor)")
             if not data.get('motivo_solicitud'):
@@ -433,10 +429,6 @@ def validar_campos_obligatorios(data):
                 errores.append("Nombre del Hospital/Clínica (Institución) es obligatorio")
             if not data.get('razon_social'):
                 errores.append("Razón Social (Institución) es obligatorio")
-            if not data.get('contacto_nombre'):
-                errores.append("Nombre de contacto (Institución) es obligatorio")
-            if not data.get('contacto_telefono'):
-                errores.append("Teléfono de contacto (Institución) es obligatorio")
             if not data.get('contacto_tecnico'):
                 errores.append("Debe indicar si quiere contacto técnico (Institución)")
             if not data.get('motivo_solicitud'):
@@ -465,10 +457,6 @@ def validar_campos_obligatorios(data):
             errores.append("Razón Social es obligatorio")
         if not data.get('cuit'):
             errores.append("CUIT es obligatorio")
-        if not data.get('contacto_nombre'):
-            errores.append("Nombre de contacto es obligatorio")
-        if not data.get('contacto_telefono'):
-            errores.append("Teléfono de contacto es obligatorio")
         if not data.get('comercial_syemed') or data.get('comercial_syemed') == "Seleccionar comercial...":
             errores.append("Comercial de contacto en Syemed es obligatorio")
         if not data.get('contacto_tecnico'):
@@ -482,10 +470,6 @@ def validar_campos_obligatorios(data):
             errores.append("Nombre del Hospital/Clínica/Sanatorio es obligatorio")
         if not data.get('razon_social'):
             errores.append("Razón Social es obligatorio")
-        if not data.get('contacto_nombre'):
-            errores.append("Nombre de contacto es obligatorio")
-        if not data.get('contacto_telefono'):
-            errores.append("Teléfono de contacto es obligatorio")
         if not data.get('comercial_syemed') or data.get('comercial_syemed') == "Seleccionar comercial...":
             errores.append("Comercial de contacto en Syemed es obligatorio")
         if not data.get('contacto_tecnico'):
@@ -497,8 +481,6 @@ def validar_campos_obligatorios(data):
     elif quien_completa == "Paciente/Particular":
         if not data.get('nombre_apellido_paciente'):
             errores.append("Nombre y Apellido es obligatorio")
-        if not data.get('telefono_paciente'):
-            errores.append("Teléfono de contacto es obligatorio")
         if not data.get('equipo_origen') and not data.get('equipo_propiedad'):
             errores.append("Debe indicar el tipo de equipo (Alquilado, Se lo entregaron, o Lo compró)")
         
@@ -519,11 +501,7 @@ def validar_campos_obligatorios(data):
         elif data.get('equipo_origen') == "Lo compró de manera directa":
             if not data.get('en_garantia'):
                 errores.append("'¿Está en garantía?' es obligatorio")
-            if data.get('en_garantia') == "Sí":
-                if not data.get('fecha_compra'):
-                    errores.append("Fecha de compra es obligatoria")
-                if not data.get('factura_garantia'):
-                    errores.append("Factura es obligatoria")
+            # NOTA: numero_ov es opcional, no requiere validación
             if not data.get('motivo_solicitud'):
                 errores.append("Motivo de la solicitud es obligatorio")
     
@@ -1423,53 +1401,111 @@ def insertar_solicitud(data, pdf_url=None):
         # Usar observacion_ingreso como detalle_fallo en la tabla solicitudes
         detalle_fallo = observacion_ingreso
         
-        # Insertar en la tabla solicitudes
+        # Verificar si la columna guia_transporte_url existe en la tabla solicitudes
         cursor.execute("""
-            INSERT INTO solicitudes (
-                    fecha_solicitud, email_solicitante, quien_completa,
-                    area_solicitante, solicitante, nivel_urgencia,
-                    logistica_cargo, equipo_corresponde_a, equipo_propiedad,
-                    nombre_fantasia, razon_social, cuit, contacto_nombre, contacto_telefono,
-                    comercial_syemed, contacto_tecnico,
-                    nombre_apellido_paciente, telefono_paciente, equipo_origen,
-                    quien_entrego, fecha_entrega,
-                    motivo_solicitud, detalle_fallo, comentarios_caso,
-                    categoria, estado, pdf_url
-                ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s
-            )
-            RETURNING id
-        """, (
-            ahora_buenos_aires(),
-            email,
-            quien_completa,
-            area_solicitante,
-            solicitante,
-            nivel_urgencia,
-            logistica_cargo,
-            equipo_corresponde_a,
-            equipo_propiedad,
-            nombre_fantasia,
-            razon_social,
-            cuit,
-            contacto_nombre,
-            contacto_telefono,
-            comercial_syemed,
-            contacto_tecnico,
-            nombre_apellido_paciente,
-            telefono_paciente,
-            equipo_origen,
-            quien_entrego,
-            data.get('fecha_entrega', None),
-            motivo_solicitud,
-            detalle_fallo,
-            comentarios_caso,
-            categoria,
-            'Pendiente',
-            pdf_url
-        ))
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='solicitudes' AND column_name='guia_transporte_url'
+        """)
+        guia_url_existe = cursor.fetchone() is not None
+        
+        # Insertar en la tabla solicitudes
+        if guia_url_existe:
+            cursor.execute("""
+                INSERT INTO solicitudes (
+                        fecha_solicitud, email_solicitante, quien_completa,
+                        area_solicitante, solicitante, nivel_urgencia,
+                        logistica_cargo, equipo_corresponde_a, equipo_propiedad,
+                        nombre_fantasia, razon_social, cuit, contacto_nombre, contacto_telefono,
+                        comercial_syemed, contacto_tecnico,
+                        nombre_apellido_paciente, telefono_paciente, equipo_origen,
+                        quien_entrego, fecha_entrega,
+                        motivo_solicitud, detalle_fallo, comentarios_caso,
+                        categoria, estado, pdf_url, guia_transporte_url
+                    ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                RETURNING id
+            """, (
+                ahora_buenos_aires(),
+                email,
+                quien_completa,
+                area_solicitante,
+                solicitante,
+                nivel_urgencia,
+                logistica_cargo,
+                equipo_corresponde_a,
+                equipo_propiedad,
+                nombre_fantasia,
+                razon_social,
+                cuit,
+                contacto_nombre,
+                contacto_telefono,
+                comercial_syemed,
+                contacto_tecnico,
+                nombre_apellido_paciente,
+                telefono_paciente,
+                equipo_origen,
+                quien_entrego,
+                data.get('fecha_entrega', None),
+                motivo_solicitud,
+                detalle_fallo,
+                comentarios_caso,
+                categoria,
+                'Pendiente',
+                pdf_url,
+                data.get('guia_transporte_url', None)
+            ))
+        else:
+            # Versión sin guia_transporte_url (retrocompatible)
+            cursor.execute("""
+                INSERT INTO solicitudes (
+                        fecha_solicitud, email_solicitante, quien_completa,
+                        area_solicitante, solicitante, nivel_urgencia,
+                        logistica_cargo, equipo_corresponde_a, equipo_propiedad,
+                        nombre_fantasia, razon_social, cuit, contacto_nombre, contacto_telefono,
+                        comercial_syemed, contacto_tecnico,
+                        nombre_apellido_paciente, telefono_paciente, equipo_origen,
+                        quien_entrego, fecha_entrega,
+                        motivo_solicitud, detalle_fallo, comentarios_caso,
+                        categoria, estado, pdf_url
+                    ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s
+                )
+                RETURNING id
+            """, (
+                ahora_buenos_aires(),
+                email,
+                quien_completa,
+                area_solicitante,
+                solicitante,
+                nivel_urgencia,
+                logistica_cargo,
+                equipo_corresponde_a,
+                equipo_propiedad,
+                nombre_fantasia,
+                razon_social,
+                cuit,
+                contacto_nombre,
+                contacto_telefono,
+                comercial_syemed,
+                contacto_tecnico,
+                nombre_apellido_paciente,
+                telefono_paciente,
+                equipo_origen,
+                quien_entrego,
+                data.get('fecha_entrega', None),
+                motivo_solicitud,
+                detalle_fallo,
+                comentarios_caso,
+                categoria,
+                'Pendiente',
+                pdf_url
+            ))
         
         solicitud_id = cursor.fetchone()[0]
             
@@ -1564,7 +1600,7 @@ def insertar_solicitud(data, pdf_url=None):
                             None,  # accesorios
                             None,  # prioridad
                             observacion_ingreso,
-                            ahora_buenos_aires()  # fecha_ingreso
+                            ahora_buenos_aires()  # fecha_ingreso  
                         ))
                     
                     resultado = cursor.fetchone()
@@ -2041,7 +2077,7 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
     - Si Alquilado -> mostrar: ST, Asistencia Técnica, Baja Alquiler, Cambio Alquiler, Cambio por falla crítica
     - Si Propio -> Pregunta: ¿Nos lo compró de manera directa?
         - Si Sí -> ¿Está en garantía? (Sí, No, No lo sé)
-            - Si Sí -> Permitir cargar factura + mostrar: ST, Asistencia Técnica, Cambio por falla crítica
+            - Si Sí -> Permitir ingresar Número de OV (opcional) + mostrar: ST, Asistencia Técnica, Cambio por falla crítica
             - Si No o No lo sé -> mostrar: ST, Asistencia Técnica, Cambio por falla crítica
         - Si No -> mostrar: ST, Asistencia Técnica, Cambio por falla crítica
     """
@@ -2059,8 +2095,7 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
     motivo_solicitud = ""
     compra_directa = None
     en_garantia = None
-    fecha_compra = None
-    factura_garantia = None
+    numero_ov = None
     motivo_cambio_alquiler = ""
     
     # FLUJO PARA ALQUILADO
@@ -2085,6 +2120,24 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
                 key=f"{tipo_cliente}_motivo_cambio_{form_key}",
                 height=100
             )
+            
+            # Preguntar si el equipo falla
+            equipo_falla_cambio = st.selectbox(
+                "¿El equipo que está devolviendo presenta alguna falla?",
+                ["", "Sí", "No"],
+                key=f"{tipo_cliente}_equipo_falla_cambio_{form_key}"
+            )
+            
+            fotos_falla_cambio = []
+            if equipo_falla_cambio == "Sí":
+                st.markdown("#### 📸 Fotos/Videos de la falla (opcional)")
+                fotos_falla_cambio = st.file_uploader(
+                    "Adjunte fotos o videos que muestren la falla",
+                    type=['jpg', 'jpeg', 'png', 'mp4', 'mov'],
+                    accept_multiple_files=True,
+                    key=f"{tipo_cliente}_fotos_falla_cambio_{form_key}",
+                    help="Puede adjuntar múltiples archivos"
+                )
     
     # FLUJO PARA PROPIO
     elif equipo_propiedad == "Propio":
@@ -2103,24 +2156,13 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
                 key=f"{tipo_cliente}_garantia_{form_key}"
             )
             
-            # Si está en garantía, permitir cargar factura
+            # Si está en garantía, pedir Número de OV (opcional)
             if en_garantia == "Sí":
-                col1, col2 = st.columns(2)
-                with col1:
-                    fecha_compra = st.date_input(
-                        "Fecha de Compra *",
-                        value=None,
-                        max_value=date.today(),
-                        format="DD/MM/YYYY",
-                        key=f"{tipo_cliente}_fecha_compra_{form_key}",
-                        help="No puede seleccionar fechas futuras"
-                    )
-                with col2:
-                    factura_garantia = st.file_uploader(
-                        "Adjunte factura *",
-                        type=['pdf', 'jpg', 'jpeg', 'png'],
-                        key=f"{tipo_cliente}_factura_{form_key}"
-                    )
+                numero_ov = st.text_input(
+                    "Número de OV (opcional)",
+                    placeholder="Ingrese el número de orden de venta",
+                    key=f"{tipo_cliente}_numero_ov_{form_key}"
+                )
                 
                 # Mostrar motivos disponibles
                 motivo_solicitud = st.selectbox(
@@ -2163,10 +2205,10 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
         'equipo_propiedad': equipo_propiedad,
         'compra_directa': compra_directa,
         'en_garantia': en_garantia,
-        'fecha_compra': fecha_compra,
-        'factura_garantia': factura_garantia,
+        'numero_ov': numero_ov if 'numero_ov' in locals() else None,
         'motivo_solicitud': motivo_solicitud,
-        'motivo_cambio_alquiler': motivo_cambio_alquiler
+        'motivo_cambio_alquiler': motivo_cambio_alquiler,
+        'fotos_falla_cambio': fotos_falla_cambio if 'fotos_falla_cambio' in locals() else []
     }
 
 
@@ -2178,7 +2220,7 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
     - Alquilado? -> Motivos: ST, Asistencia Técnica, Baja Alquiler, Cambio Alquiler, Cambio por falla crítica
     - Se lo entregaron? -> ¿Quién lo entregó? + Fecha + Obra Social -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
     - Lo compró de manera directa? -> ¿Está en garantía? (Sí, No, No lo sé)
-        - Si Sí -> Cargar factura -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
+        - Si Sí -> Permitir ingresar Número de OV (opcional) -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
         - Si No o No lo sé -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
     """
     
@@ -2196,8 +2238,7 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
     fecha_entrega = None
     obra_social = ""
     en_garantia = None
-    fecha_compra = None
-    factura_garantia = None
+    numero_ov = None
     motivo_solicitud = ""
     motivo_cambio_alquiler = ""
     
@@ -2223,6 +2264,24 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
                 key=f"p_motivo_cambio_{form_key}",
                 height=100
             )
+            
+            # Preguntar si el equipo falla
+            equipo_falla_cambio = st.selectbox(
+                "¿El equipo que está devolviendo presenta alguna falla?",
+                ["", "Sí", "No"],
+                key=f"p_equipo_falla_cambio_{form_key}"
+            )
+            
+            fotos_falla_cambio = []
+            if equipo_falla_cambio == "Sí":
+                st.markdown("#### 📸 Fotos/Videos de la falla (opcional)")
+                fotos_falla_cambio = st.file_uploader(
+                    "Adjunte fotos o videos que muestren la falla",
+                    type=['jpg', 'jpeg', 'png', 'mp4', 'mov'],
+                    accept_multiple_files=True,
+                    key=f"p_fotos_falla_cambio_{form_key}",
+                    help="Puede adjuntar múltiples archivos"
+                )
     
     # FLUJO: SE LO ENTREGARON
     elif equipo_propiedad == "Se lo entregaron":
@@ -2268,24 +2327,13 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
             key=f"p_garantia_{form_key}"
         )
         
-        # Si está en garantía, cargar factura
+        # Si está en garantía, pedir Número de OV (opcional)
         if en_garantia == "Sí":
-            col1, col2 = st.columns(2)
-            with col1:
-                fecha_compra = st.date_input(
-                    "Fecha de Compra *",
-                    value=None,
-                    max_value=date.today(),
-                    format="DD/MM/YYYY",
-                    key=f"p_fecha_compra_{form_key}",
-                    help="No puede seleccionar fechas futuras"
-                )
-            with col2:
-                factura_garantia = st.file_uploader(
-                    "Adjunte factura *",
-                    type=['pdf', 'jpg', 'jpeg', 'png'],
-                    key=f"p_factura_{form_key}"
-                )
+            numero_ov = st.text_input(
+                "Número de OV (opcional)",
+                placeholder="Ingrese el número de orden de venta",
+                key=f"p_numero_ov_{form_key}"
+            )
             
             motivo_solicitud = st.selectbox(
                 "Motivo de la solicitud *",
@@ -2314,14 +2362,14 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
     return {
         'equipo_propiedad': equipo_propiedad if equipo_propiedad == "Alquilado" else None,
         'equipo_origen': equipo_propiedad if equipo_propiedad != "Alquilado" else None,
-        'quien_entrego': quien_entrego,
-        'fecha_entrega': fecha_entrega,
-        'obra_social': obra_social,
-        'en_garantia': en_garantia,
-        'fecha_compra': fecha_compra,
-        'factura_garantia': factura_garantia,
+        'quien_entrego': quien_entrego if 'quien_entrego' in locals() else None,
+        'fecha_entrega': fecha_entrega if 'fecha_entrega' in locals() else None,
+        'obra_social': obra_social if 'obra_social' in locals() else None,
+        'en_garantia': en_garantia if 'en_garantia' in locals() else None,
+        'numero_ov': numero_ov if 'numero_ov' in locals() else None,
         'motivo_solicitud': motivo_solicitud,
-        'motivo_cambio_alquiler': motivo_cambio_alquiler
+        'motivo_cambio_alquiler': motivo_cambio_alquiler if 'motivo_cambio_alquiler' in locals() else None,
+        'fotos_falla_cambio': fotos_falla_cambio if 'fotos_falla_cambio' in locals() else []
     }
 
 
@@ -2509,7 +2557,7 @@ def main():
             st.info("💡 Seleccione todas las opciones que apliquen y luego continúe más abajo")
             logistica_cargo = st.multiselect(
                 "Seleccione las opciones que apliquen:", 
-                ["Ida a cargo de Cliente", "Ida a cargo de Syemed", "Vuelta a cargo de Cliente", "Vuelta a cargo de Syemed"],
+                ["Ida a cargo de Cliente", "Ida a cargo de Syemed", "Vuelta a cargo de Cliente", "Vuelta a cargo de Syemed", "Transporte externo"],
                 key=f"logistica_{st.session_state.form_key}",
                 help="Puede seleccionar múltiples opciones. Haga clic fuera del menú cuando termine.",
                 label_visibility="collapsed"
@@ -2519,6 +2567,26 @@ def main():
                 st.success(f"✅ {len(logistica_cargo)} opción(es) seleccionada(s)")
                 for opcion in logistica_cargo:
                     st.caption(f"  • {opcion}")
+            
+            # Si se selecciona "Transporte externo", mostrar campos adicionales
+            detalles_transporte = ""
+            guia_transporte = None
+            if "Transporte externo" in logistica_cargo:
+                st.markdown("#### 🚚 Detalles del Transporte Externo")
+                detalles_transporte = st.text_area(
+                    "Detalles del transporte externo *",
+                    placeholder="Indique nombre de la empresa de transporte, datos de contacto, horarios, etc.",
+                    height=100,
+                    key=f"detalles_transporte_{st.session_state.form_key}",
+                    help="Información sobre el transporte externo"
+                )
+                
+                guia_transporte = st.file_uploader(
+                    "Guía de transporte (PDF o imagen)",
+                    type=['pdf', 'jpg', 'jpeg', 'png'],
+                    key=f"guia_transporte_{st.session_state.form_key}",
+                    help="Adjunte la guía del transporte si está disponible"
+                )
             
             comentarios_caso = st.text_area(
                 "Comentarios sobre el caso", 
@@ -2533,11 +2601,17 @@ def main():
                 key=f"equipo_corresponde_{st.session_state.form_key}"
             )
             
+            # Construir logistica_cargo con detalles si hay transporte externo
+            logistica_cargo_texto = ', '.join(logistica_cargo)
+            if detalles_transporte:
+                logistica_cargo_texto += f" | Detalles: {detalles_transporte}"
+            
             data.update({
                 'area_solicitante': area_solicitante,
                 'solicitante': solicitante,
                 'nivel_urgencia': nivel_urgencia,
-                'logistica_cargo': ', '.join(logistica_cargo),
+                'logistica_cargo': logistica_cargo_texto,
+                'guia_transporte': guia_transporte,
                 'comentarios_caso': comentarios_caso,
                 'equipo_corresponde_a': equipo_corresponde_a
             })
@@ -2848,6 +2922,10 @@ def mostrar_seccion_distribuidor(data, es_directo=False):
     
     form_key = st.session_state.form_key
     
+    # Inicializar variables
+    contacto_nombre = ""
+    contacto_telefono = ""
+    
     col1, col2 = st.columns(2)
     with col1:
         nombre_fantasia = st.text_input("Nombre de Fantasía *", placeholder="Ejemplo: Syemed", key=f"d_nombre_{form_key}")
@@ -2856,15 +2934,18 @@ def mostrar_seccion_distribuidor(data, es_directo=False):
         cuit = validar_solo_numeros(cuit_input)
         if cuit_input and not cuit_input.isdigit():
             st.warning("⚠️ Solo se permiten números en el CUIT")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
-
-    with col2:
-        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
-        contacto_telefono = validar_solo_numeros(telefono_input)
-        if telefono_input and not telefono_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el teléfono")
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"d_comercial_{form_key}")
+    with col2:
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"d_contacto_tec_{form_key}")
+        if contacto_tecnico == "Sí":
+            telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
+            contacto_telefono = validar_solo_numeros(telefono_input)
+            if telefono_input and not telefono_input.isdigit():
+                st.warning("⚠️ Solo se permiten números en el teléfono")
+            contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
+
+        
+        
     
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -2886,6 +2967,10 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
     
     form_key = st.session_state.form_key
     
+    # Inicializar variables
+    contacto_nombre = ""
+    contacto_telefono = ""
+    
     col1, col2 = st.columns(2)
     with col1:
         nombre_fantasia = st.text_input("Nombre de Fantasía *", placeholder="Ejemplo: Syemed", key=f"db_nombre_{form_key}")
@@ -2897,12 +2982,13 @@ def mostrar_seccion_distribuidorB(data, es_directo=False):
         
     
     with col2:
-        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"db_tel_{form_key}", max_chars=15)
-        contacto_telefono = validar_solo_numeros(telefono_input)
-        if telefono_input and not telefono_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"db_contacto_tec_{form_key}")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"db_contacto_{form_key}")
+        if contacto_tecnico == "Sí":
+                telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
+                contacto_telefono = validar_solo_numeros(telefono_input)
+                if telefono_input and not telefono_input.isdigit():
+                    st.warning("⚠️ Solo se permiten números en el teléfono")
+                contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
 
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -2924,6 +3010,10 @@ def mostrar_seccion_institucion(data, es_directo=False):
     
     form_key = st.session_state.form_key
     
+    # Inicializar variables
+    contacto_nombre = ""
+    contacto_telefono = ""
+    
     col1, col2 = st.columns(2)
     with col1:
         nombre_fantasia = st.text_input("Nombre del Hospital/Clínica/Sanatorio *", key=f"i_nombre_{form_key}")
@@ -2935,12 +3025,15 @@ def mostrar_seccion_institucion(data, es_directo=False):
         contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"i_contacto_{form_key}")
     
     with col2:
-        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"i_tel_{form_key}", max_chars=15)
-        contacto_telefono = validar_solo_numeros(telefono_input)
-        if telefono_input and not telefono_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el teléfono")
+        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"db_contacto_tec_{form_key}")
+        if contacto_tecnico == "Sí":
+                telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
+                contacto_telefono = validar_solo_numeros(telefono_input)
+                if telefono_input and not telefono_input.isdigit():
+                    st.warning("⚠️ Solo se permiten números en el teléfono")
+                contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
         comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"i_comercial_{form_key}")
-        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"i_contacto_tec_{form_key}")
+        
     
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -2963,6 +3056,10 @@ def mostrar_seccion_institucionB(data, es_directo=False):
     
     form_key = st.session_state.form_key
     
+    # Inicializar variables
+    contacto_nombre = ""
+    contacto_telefono = ""
+    
     col1, col2 = st.columns(2)
     with col1:
         nombre_fantasia = st.text_input("Nombre del Hospital/Clínica/Sanatorio *", key=f"ib_nombre_{form_key}")
@@ -2974,12 +3071,13 @@ def mostrar_seccion_institucionB(data, es_directo=False):
         
     
     with col2:
-        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"ib_tel_{form_key}", max_chars=15)
-        contacto_telefono = validar_solo_numeros(telefono_input)
-        if telefono_input and not telefono_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el teléfono")
         contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"ib_contacto_tec_{form_key}")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"ib_contacto_{form_key}")
+        if contacto_tecnico == "Sí":
+                telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
+                contacto_telefono = validar_solo_numeros(telefono_input)
+                if telefono_input and not telefono_input.isdigit():
+                    st.warning("⚠️ Solo se permiten números en el teléfono")
+                contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
     
     data.update({
         'nombre_fantasia': nombre_fantasia,
@@ -3048,6 +3146,7 @@ def mostrar_seccion_baja_alquiler(data):
     motivo_baja = ""
     observacion_baja = ""
     estado_equipo = ""
+    fotos_falla_baja = []  # Nueva variable para fotos de falla
     
     if fin_contrato == "Sí":
         equipo_falla = st.selectbox(
@@ -3063,6 +3162,17 @@ def mostrar_seccion_baja_alquiler(data):
                 placeholder="Describa detalladamente la falla presentada...",
                 key=f"tipo_falla_fin_{form_key}"
             )
+            
+            # Agregar sección de fotos/videos de falla
+            st.markdown("#### 📸 Fotos/Videos de la falla (opcional)")
+            fotos_falla_baja = st.file_uploader(
+                "Adjunte fotos o videos que muestren la falla",
+                type=['jpg', 'jpeg', 'png', 'mp4', 'mov'],
+                accept_multiple_files=True,
+                key=f"fotos_falla_baja_fin_{form_key}",
+                help="Puede adjuntar múltiples archivos"
+            )
+            
             motivo_baja = "Fin de contrato"
             observacion_baja = tipo_falla if tipo_falla else ""
             estado_equipo = "Con falla"
@@ -3084,6 +3194,17 @@ def mostrar_seccion_baja_alquiler(data):
                 placeholder="Describa detalladamente la falla presentada...",
                 key=f"tipo_falla_no_fin_{form_key}"
             )
+            
+            # Agregar sección de fotos/videos de falla
+            st.markdown("#### 📸 Fotos/Videos de la falla (opcional)")
+            fotos_falla_baja = st.file_uploader(
+                "Adjunte fotos o videos que muestren la falla",
+                type=['jpg', 'jpeg', 'png', 'mp4', 'mov'],
+                accept_multiple_files=True,
+                key=f"fotos_falla_baja_no_fin_{form_key}",
+                help="Puede adjuntar múltiples archivos"
+            )
+            
             motivo_baja = "Falla en el equipo"
             observacion_baja = tipo_falla if tipo_falla else ""
             estado_equipo = "Con falla"
@@ -3105,7 +3226,8 @@ def mostrar_seccion_baja_alquiler(data):
         'motivo_baja_otro': motivo_baja_otro,
         'motivo_baja': motivo_baja,
         'observacion_baja': observacion_baja,
-        'estado_equipo': estado_equipo
+        'estado_equipo': estado_equipo,
+        'fotos_falla_baja': fotos_falla_baja if fotos_falla_baja else []
     })
 
 def mostrar_seccion_equipos(data, contexto="general"):
@@ -3423,23 +3545,53 @@ def procesar_formulario(data):
                             'tamano': archivo.size
                         })
         
-        # MODIFICADO: Subir factura desde factura_garantia (capturada en Información del Equipo)
-        # Esta factura es la misma para todos los equipos
-        factura_url_global = None
-        if 'factura_garantia' in data and data['factura_garantia']:
-            factura = data['factura_garantia']
-            exito, resultado = subir_archivo_cloudinary(factura, "solicitudes_st/facturas")
-            if exito:
-                factura_url_global = resultado
-                urls_archivos.append({
-                    'tipo': 'factura',
-                    'equipo_num': 'todos',  # Se aplica a todos los equipos
-                    'nombre': factura.name,
-                    'url': resultado,
-                    'tamano': factura.size
-                })
+        # NUEVO: Subir fotos de falla de Baja de Alquiler
+        if 'fotos_falla_baja' in data and data['fotos_falla_baja']:
+            for archivo in data['fotos_falla_baja']:
+                exito, resultado = subir_archivo_cloudinary(archivo, "solicitudes_st/fotos_baja")
+                if exito:
+                    urls_archivos.append({
+                        'tipo': 'foto_video',
+                        'equipo_num': 'baja',
+                        'nombre': archivo.name,
+                        'url': resultado,
+                        'tamano': archivo.size
+                    })
         
-        # NUEVO: Agregar URL de factura a cada equipo
+        # NUEVO: Subir fotos de falla de Cambio de Alquiler
+        if 'fotos_falla_cambio' in data and data['fotos_falla_cambio']:
+            for archivo in data['fotos_falla_cambio']:
+                exito, resultado = subir_archivo_cloudinary(archivo, "solicitudes_st/fotos_cambio")
+                if exito:
+                    urls_archivos.append({
+                        'tipo': 'foto_video',
+                        'equipo_num': 'cambio',
+                        'nombre': archivo.name,
+                        'url': resultado,
+                        'tamano': archivo.size
+                    })
+        
+        # NUEVO: Subir guía de transporte
+        if 'guia_transporte' in data and data['guia_transporte']:
+            guia = data['guia_transporte']
+            exito, resultado = subir_archivo_cloudinary(guia, "solicitudes_st/guias")
+            if exito:
+                urls_archivos.append({
+                    'tipo': 'guia_transporte',
+                    'equipo_num': 'todos',
+                    'nombre': guia.name,
+                    'url': resultado,
+                    'tamano': guia.size
+                })
+                # Guardar URL de guía en data
+                data['guia_transporte_url'] = resultado
+        
+        # NOTA: factura_garantia fue reemplazada por numero_ov (texto opcional)
+        # Ya no se sube factura cuando el equipo está en garantía
+        # La lógica anterior de factura_garantia permanece comentada por compatibilidad
+        factura_url_global = None
+        
+        # NUEVO: Agregar URL de factura a cada equipo (siempre None ahora)
         for equipo in data.get('equipos', []):
             equipo['factura_url'] = factura_url_global
     
