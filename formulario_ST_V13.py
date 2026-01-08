@@ -421,6 +421,12 @@ def validar_campos_obligatorios(data):
                 errores.append("CUIT (Distribuidor) es obligatorio")
             if not data.get('contacto_tecnico'):
                 errores.append("Debe indicar si quiere contacto técnico (Distribuidor)")
+            # Validar teléfono y nombre SOLO si quiere que lo contacten
+            if data.get('contacto_tecnico') == "Sí":
+                if not data.get('contacto_telefono'):
+                    errores.append("Teléfono de contacto (Distribuidor) es obligatorio cuando solicita ser contactado")
+                if not data.get('contacto_nombre'):
+                    errores.append("Nombre de contacto (Distribuidor) es obligatorio cuando solicita ser contactado")
             if not data.get('motivo_solicitud'):
                 errores.append("Motivo de la solicitud (Distribuidor) es obligatorio")
         
@@ -431,14 +437,24 @@ def validar_campos_obligatorios(data):
                 errores.append("Razón Social (Institución) es obligatorio")
             if not data.get('contacto_tecnico'):
                 errores.append("Debe indicar si quiere contacto técnico (Institución)")
+            # Validar teléfono y nombre SOLO si quiere que lo contacten
+            if data.get('contacto_tecnico') == "Sí":
+                if not data.get('contacto_telefono'):
+                    errores.append("Teléfono de contacto (Institución) es obligatorio cuando solicita ser contactado")
+                if not data.get('contacto_nombre'):
+                    errores.append("Nombre de contacto (Institución) es obligatorio cuando solicita ser contactado")
             if not data.get('motivo_solicitud'):
                 errores.append("Motivo de la solicitud (Institución) es obligatorio")
         
         elif equipo_corresponde_a == "Paciente/Particular":
             if not data.get('nombre_apellido_paciente'):
                 errores.append("Nombre y Apellido (Paciente) es obligatorio")
-            if not data.get('telefono_paciente'):
-                errores.append("Teléfono (Paciente) es obligatorio")
+            if not data.get('contacto_tecnico'):
+                errores.append("Debe indicar si quiere contacto técnico (Paciente)")
+            # Validar teléfono SOLO si quiere que lo contacten
+            if data.get('contacto_tecnico') == "Sí":
+                if not data.get('telefono_paciente'):
+                    errores.append("Teléfono (Paciente) es obligatorio cuando solicita ser contactado")
             # Validar origen según tipo de usuario
             if st.session_state.get('tipo_usuario') == "Paciente":
                 if not data.get('equipo_origen'):
@@ -461,6 +477,12 @@ def validar_campos_obligatorios(data):
             errores.append("Comercial de contacto en Syemed es obligatorio")
         if not data.get('contacto_tecnico'):
             errores.append("Debe indicar si quiere contacto técnico")
+        # Validar teléfono y nombre SOLO si quiere que lo contacten
+        if data.get('contacto_tecnico') == "Sí":
+            if not data.get('contacto_telefono'):
+                errores.append("Teléfono de contacto es obligatorio cuando solicita ser contactado")
+            if not data.get('contacto_nombre'):
+                errores.append("Nombre de contacto es obligatorio cuando solicita ser contactado")
         if not data.get('motivo_solicitud'):
             errores.append("Motivo de la solicitud es obligatorio")
     
@@ -474,6 +496,12 @@ def validar_campos_obligatorios(data):
             errores.append("Comercial de contacto en Syemed es obligatorio")
         if not data.get('contacto_tecnico'):
             errores.append("Debe indicar si quiere contacto técnico")
+        # Validar teléfono y nombre SOLO si quiere que lo contacten
+        if data.get('contacto_tecnico') == "Sí":
+            if not data.get('contacto_telefono'):
+                errores.append("Teléfono de contacto es obligatorio cuando solicita ser contactado")
+            if not data.get('contacto_nombre'):
+                errores.append("Nombre de contacto es obligatorio cuando solicita ser contactado")
         if not data.get('motivo_solicitud'):
             errores.append("Motivo de la solicitud es obligatorio")
     
@@ -515,6 +543,11 @@ def validar_campos_obligatorios(data):
     elif motivo == "Cambio por falla de funcionamiento crítica":
         if not data.get('detalle_fallo', '').strip():
             errores.append("Debe describir la falla crítica que justifica el cambio")
+    
+    if motivo == "Baja de demo":
+        if not data.get('lugar_prueba_demo', '').strip():
+            errores.append("Debe indicar el lugar/institución/hospital donde se probó el equipo (Baja de demo)")
+    
     
     elif motivo in ["Servicio Técnico (reparaciones de equipos en general)", 
                     "Servicio Post Venta (para alguno de nuestros productos adquiridos)"]:
@@ -613,12 +646,19 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
     if quien_completa == "Colaborador de Syemed":
         # Mapear nivel de urgencia numérico a texto
         nivel_urgencia_num = data.get('nivel_urgencia', 0)
-        if nivel_urgencia_num <= 1:
-            nivel_urgencia_texto = f"Bajo ({nivel_urgencia_num})"
-        elif 1 < nivel_urgencia_num <= 3:
-            nivel_urgencia_texto = f"Medio ({nivel_urgencia_num})"
-        else:  # 4-5
-            nivel_urgencia_texto = f"Alto ({nivel_urgencia_num})"
+        if nivel_urgencia_num and nivel_urgencia_num != "":
+            try:
+                nivel_urgencia_num = int(nivel_urgencia_num) if isinstance(nivel_urgencia_num, str) else nivel_urgencia_num
+                if nivel_urgencia_num <= 1:
+                    nivel_urgencia_texto = f"Bajo ({nivel_urgencia_num})"
+                elif 1 < nivel_urgencia_num <= 3:
+                    nivel_urgencia_texto = f"Medio ({nivel_urgencia_num})"
+                else:  # 4-5
+                    nivel_urgencia_texto = f"Alto ({nivel_urgencia_num})"
+            except (ValueError, TypeError):
+                nivel_urgencia_texto = "No especificado"
+        else:
+            nivel_urgencia_texto = "No especificado"
         
         # Preparar comentarios como Paragraph para mejor formato de textos largos
         comentarios_texto = data.get('comentarios_caso', 'N/A')
@@ -1260,6 +1300,37 @@ def generar_codigo_categoria(data):
     
     return "N/A"
 
+def convertir_garantia_a_boolean(valor_garantia):
+    """
+    Convierte el valor de garantía a un formato que PostgreSQL pueda manejar.
+    
+    Args:
+        valor_garantia: Puede ser "Sí", "No", "No lo sé", None, True, False
+    
+    Returns:
+        None si no se sabe, True si está en garantía, False si no está
+    """
+    if valor_garantia is None or valor_garantia == "":
+        return None
+    
+    # Si es string
+    if isinstance(valor_garantia, str):
+        valor_lower = valor_garantia.lower().strip()
+        if valor_lower in ["sí", "si", "yes", "true"]:
+            return True
+        elif valor_lower in ["no", "false"]:
+            return False
+        elif "no lo sé" in valor_lower or "no se" in valor_lower:
+            return None  # No se sabe
+        else:
+            return None
+    
+    # Si ya es boolean
+    if isinstance(valor_garantia, bool):
+        return valor_garantia
+    
+    return None
+
 def insertar_solicitud(data, pdf_url=None):
     """Inserta la solicitud y los equipos en la base de datos"""
     conn = None
@@ -1305,16 +1376,19 @@ def insertar_solicitud(data, pdf_url=None):
         
         # Convertir nivel_urgencia numérico a texto
         nivel_urgencia_num = data.get('nivel_urgencia')
-        if nivel_urgencia_num is not None:
+        if nivel_urgencia_num is not None and nivel_urgencia_num != "":
             # Convertir a entero si es necesario
-            nivel_urgencia_num = int(nivel_urgencia_num) if isinstance(nivel_urgencia_num, str) else nivel_urgencia_num
-            
-            if nivel_urgencia_num <= 1:
-                nivel_urgencia = f"Bajo ({nivel_urgencia_num})"
-            elif 1 < nivel_urgencia_num <= 3:
-                nivel_urgencia = f"Medio ({nivel_urgencia_num})"
-            else:  # 4-5
-                nivel_urgencia = f"Alto ({nivel_urgencia_num})"
+            try:
+                nivel_urgencia_num = int(nivel_urgencia_num) if isinstance(nivel_urgencia_num, str) else nivel_urgencia_num
+                
+                if nivel_urgencia_num <= 1:
+                    nivel_urgencia = f"Bajo ({nivel_urgencia_num})"
+                elif 1 < nivel_urgencia_num <= 3:
+                    nivel_urgencia = f"Medio ({nivel_urgencia_num})"
+                else:  # 4-5
+                    nivel_urgencia = f"Alto ({nivel_urgencia_num})"
+            except (ValueError, TypeError):
+                nivel_urgencia = None
         else:
             nivel_urgencia = None
         
@@ -1397,6 +1471,13 @@ def insertar_solicitud(data, pdf_url=None):
             
             if partes:
                 observacion_ingreso = ' | '.join(partes)
+        
+        
+        elif motivo_solicitud == "Baja de demo":
+            # Para Baja de demo: lugar donde se probó el equipo
+            lugar_prueba = data.get('lugar_prueba_demo', '')
+            if lugar_prueba:
+                observacion_ingreso = f"Lugar de prueba: {lugar_prueba}"
         
         # Usar observacion_ingreso como detalle_fallo en la tabla solicitudes
         detalle_fallo = observacion_ingreso
@@ -1513,8 +1594,13 @@ def insertar_solicitud(data, pdf_url=None):
         cliente = "Syemed"
         quien_completa = data.get('quien_completa', '')
         equipo_propiedad = data.get('equipo_propiedad', '')
-
-        if quien_completa == "Distribuidor":
+        motivo_solicitud = data.get('motivo_solicitud', '')
+        
+        # REGLA ESPECIAL: Si es Baja o Cambio de Alquiler, el cliente siempre es Syemed
+        if motivo_solicitud in ["Baja de Alquiler", "Cambio de Alquiler"]:
+            cliente = "Syemed"
+        # Lógica normal para otros casos
+        elif quien_completa == "Distribuidor":
             cliente = "Syemed" if equipo_propiedad == "Alquilado" else data.get('nombre_fantasia', 'Syemed')
         elif quien_completa == "Institución":
             cliente = "Syemed" if equipo_propiedad == "Alquilado" else data.get('nombre_fantasia', 'Syemed')
@@ -1551,6 +1637,9 @@ def insertar_solicitud(data, pdf_url=None):
                     
                     if factura_url_existe:
                         # VERSIÓN CON factura_url (BD actualizada)
+                        # Convertir en_garantia a boolean/None
+                        en_garantia_convertida = convertir_garantia_a_boolean(equipo.get('en_garantia'))
+                        
                         cursor.execute("""
                             INSERT INTO equipos (
                                 solicitud_id, numero_equipo, tipo_equipo, marca, modelo,
@@ -1566,7 +1655,7 @@ def insertar_solicitud(data, pdf_url=None):
                             equipo.get('marca'),
                             equipo.get('modelo'),
                             equipo.get('numero_serie'),
-                            equipo.get('en_garantia'),
+                            en_garantia_convertida,  # ✅ Usar valor convertido
                             equipo.get('fecha_compra'),
                             equipo.get('factura_url'),  # URL de la factura
                             cliente,
@@ -1578,6 +1667,9 @@ def insertar_solicitud(data, pdf_url=None):
                         ))
                     else:
                         # VERSIÓN SIN factura_url (retrocompatible)
+                        # Convertir en_garantia a boolean/None
+                        en_garantia_convertida = convertir_garantia_a_boolean(equipo.get('en_garantia'))
+                        
                         cursor.execute("""
                             INSERT INTO equipos (
                                 solicitud_id, numero_equipo, tipo_equipo, marca, modelo,
@@ -1593,7 +1685,7 @@ def insertar_solicitud(data, pdf_url=None):
                             equipo.get('marca'),
                             equipo.get('modelo'),
                             equipo.get('numero_serie'),
-                            equipo.get('en_garantia'),
+                            en_garantia_convertida,  # ✅ Usar valor convertido
                             equipo.get('fecha_compra'),
                             cliente,
                             None,  # remito
@@ -1635,10 +1727,14 @@ def insertar_solicitud(data, pdf_url=None):
                     categoria = 'falla'
                     # Vincular foto al equipo correspondiente
                     equipo_num = archivo_info.get('equipo_num', 1)
-                    if equipo_num <= len(equipos_ids):
+                    if isinstance(equipo_num, int) and equipo_num <= len(equipos_ids):
                         equipo_id_ref = equipos_ids[equipo_num - 1]
+                    elif equipo_num in ['baja', 'cambio'] and len(equipos_ids) == 1:
+                        # Si hay solo un equipo en baja/cambio, vincular la foto a ese equipo
+                        equipo_id_ref = equipos_ids[0]
                     else:
-                        equipo_id_ref = None  # Fallback
+                        # Para múltiples equipos en baja/cambio, dejar sin vincular (vinculado solo a solicitud)
+                        equipo_id_ref = None
                 
                 # Insertar en archivos_adjuntos
                 cursor.execute("""
@@ -2595,10 +2691,18 @@ def main():
                 key=f"comentarios_{st.session_state.form_key}"
             )
             
-            equipo_corresponde_a = st.selectbox(
-                "La solicitud corresponde a: *", 
-                ["", "Paciente/Particular", "Distribuidor", "Institución", "Equipo de Stock", "Baja de demo"],
-                key=f"equipo_corresponde_{st.session_state.form_key}"
+            # NUEVA ESTRUCTURA V14: Primero tipo de solicitud, luego tipo de usuario
+            tipo_solicitud = st.selectbox(
+                "Tipo de solicitud: *", 
+                ["", 
+                 "Baja Alquiler", 
+                 "Cambio Alquiler", 
+                 "Servicio Técnico", 
+                 "Atención Técnica", 
+                 "Cambio por Falla Crítica",
+                 "Equipo de Stock", 
+                 "Baja de demo"],
+                key=f"tipo_solicitud_{st.session_state.form_key}"
             )
             
             # Construir logistica_cargo con detalles si hay transporte externo
@@ -2613,36 +2717,210 @@ def main():
                 'logistica_cargo': logistica_cargo_texto,
                 'guia_transporte': guia_transporte,
                 'comentarios_caso': comentarios_caso,
-                'equipo_corresponde_a': equipo_corresponde_a
+                'tipo_solicitud_inicial': tipo_solicitud
             })
             
-            # Lógica condicional para Colaboradores según "El equipo corresponde a"
-            if equipo_corresponde_a == "Distribuidor":
-                mostrar_seccion_distribuidorB(data)
-            elif equipo_corresponde_a == "Institución":
-                mostrar_seccion_institucionB(data)
-            elif equipo_corresponde_a == "Paciente/Particular":
-                mostrar_seccion_paciente(data)
-            elif equipo_corresponde_a == "Equipo de Stock":
-                # Para Equipo de Stock, establecer un motivo por defecto
-                data['motivo_solicitud'] = "Equipo de Stock"
-                mostrar_seccion_equipos(data, contexto="stock")
-            elif equipo_corresponde_a == "Baja de demo":
-                data['motivo_solicitud'] = "Baja de demo"
-                mostrar_seccion_equipos(data, contexto="baja_demo")
+            # FLUJO SEGÚN TIPO DE SOLICITUD
+            if tipo_solicitud in ["Equipo de Stock", "Baja de demo"]:
+                # Casos especiales que no requieren selección de usuario
+                if tipo_solicitud == "Equipo de Stock":
+                    data['motivo_solicitud'] = "Equipo de Stock"
+                    data['equipo_corresponde_a'] = "Equipo de Stock"
+                    mostrar_seccion_equipos(data, contexto="stock")
+                elif tipo_solicitud == "Baja de demo":
+                    data['motivo_solicitud'] = "Baja de demo"
+                    data['equipo_corresponde_a'] = "Baja de demo"
+                    # Mostrar sección específica de Baja de demo
+                    mostrar_seccion_baja_demo(data)
+                    # Luego mostrar equipos
+                    mostrar_seccion_equipos(data, contexto="baja_demo")
+                    
+            elif tipo_solicitud in ["Baja Alquiler", "Cambio Alquiler"]:
+                # Para bajas y cambios de alquiler, seleccionar usuario
+                equipo_corresponde_a = st.selectbox(
+                    "El equipo corresponde a: *",
+                    ["", "Paciente/Particular", "Distribuidor", "Institución"],
+                    key=f"usuario_{tipo_solicitud.replace(' ', '_')}_{st.session_state.form_key}"
+                )
+                
+                if equipo_corresponde_a:
+                    data['equipo_corresponde_a'] = equipo_corresponde_a
+                    
+                    # Normalizar motivo
+                    if tipo_solicitud == "Baja Alquiler":
+                        data['motivo_solicitud'] = "Baja de Alquiler"
+                        # 1. Primero: Motivo de Baja (como sección)
+                        mostrar_seccion_baja_alquiler(data)
+                        
+                    elif tipo_solicitud == "Cambio Alquiler":
+                        data['motivo_solicitud'] = "Cambio de Alquiler"
+                        # 1. Primero: Motivo de Cambio (como sección)
+                        mostrar_seccion_cambio_alquiler(data)
+                    
+                    # 2. Segundo: Datos del usuario
+                    if equipo_corresponde_a == "Paciente/Particular":
+                        mostrar_datos_paciente_simple(data)
+                    elif equipo_corresponde_a == "Distribuidor":
+                        mostrar_datos_distribuidor_simple(data)
+                    elif equipo_corresponde_a == "Institución":
+                        mostrar_datos_institucion_simple(data)
+                    
+                    # 3. Tercero: Equipos (UNA SOLA VEZ)
+                    mostrar_seccion_equipos(data, contexto=tipo_solicitud.lower().replace(" ", "_"))
+                        
+            elif tipo_solicitud in ["Servicio Técnico", "Atención Técnica", "Cambio por Falla Crítica"]:
+                # Para servicios técnicos, atención técnica y cambios por falla
+                equipo_corresponde_a = st.selectbox(
+                    "El equipo corresponde a: *",
+                    ["", "Paciente/Particular", "Distribuidor", "Institución"],
+                    key=f"usuario_{tipo_solicitud.replace(' ', '_')}_{st.session_state.form_key}"
+                )
+                
+                if equipo_corresponde_a:
+                    data['equipo_corresponde_a'] = equipo_corresponde_a
+                    
+                    # Normalizar motivo según tipo de solicitud
+                    if tipo_solicitud == "Servicio Técnico":
+                        motivo_base = "Servicio Técnico (reparaciones de equipos en general)"
+                    elif tipo_solicitud == "Atención Técnica":
+                        motivo_base = "Servicio Post Venta (para alguno de nuestros productos adquiridos)"
+                    elif tipo_solicitud == "Cambio por Falla Crítica":
+                        motivo_base = "Cambio por falla de funcionamiento crítica"
+                    
+                    data['motivo_solicitud'] = motivo_base
+                    
+                    # Flujo según usuario
+                    if equipo_corresponde_a == "Paciente/Particular":
+                        # Primero datos del paciente
+                        mostrar_datos_paciente_simple(data)
+                        # Luego flujo de propiedad/garantía
+                        mostrar_flujo_garantia_paciente_colaborador(data)
+                        
+                    elif equipo_corresponde_a == "Distribuidor":
+                        # Flujo: Garantía -> Datos Distribuidor -> Equipo
+                        mostrar_flujo_garantia_distribuidor_colaborador(data)
+                        
+                    elif equipo_corresponde_a == "Institución":
+                        # Flujo: Garantía -> Datos Institución -> Equipo
+                        mostrar_flujo_garantia_institucion_colaborador(data)
 
         
         # SECCIÓN 3: Distribuidor directo
         elif quien_completa == "Distribuidor":
-            mostrar_seccion_distribuidor(data, es_directo=True)
+            # Primero mostrar datos del distribuidor
+            mostrar_datos_distribuidor_simple(data)
+            
+            # Luego preguntar tipo de solicitud
+            tipo_solicitud_distribuidor = st.selectbox(
+                "Tipo de solicitud: *",
+                ["", "Baja Alquiler", "Cambio Alquiler", "Servicio Técnico", "Atención Técnica", "Cambio por Falla Crítica"],
+                key=f"tipo_solic_dist_{st.session_state.form_key}"
+            )
+            
+            if tipo_solicitud_distribuidor in ["Baja Alquiler", "Cambio Alquiler"]:
+                if tipo_solicitud_distribuidor == "Baja Alquiler":
+                    data['motivo_solicitud'] = "Baja de Alquiler"
+                    # Mostrar sección de motivo de baja
+                    mostrar_seccion_baja_alquiler(data)
+                else:
+                    data['motivo_solicitud'] = "Cambio de Alquiler"
+                    # Mostrar sección de motivo de cambio
+                    mostrar_seccion_cambio_alquiler(data)
+                
+                data['equipo_corresponde_a'] = "Distribuidor"
+                # Equipos se muestran UNA SOLA VEZ aquí
+                mostrar_seccion_equipos(data, contexto=tipo_solicitud_distribuidor.lower().replace(" ", "_"))
+                
+            elif tipo_solicitud_distribuidor in ["Servicio Técnico", "Atención Técnica", "Cambio por Falla Crítica"]:
+                # Normalizar motivo
+                if tipo_solicitud_distribuidor == "Servicio Técnico":
+                    data['motivo_solicitud'] = "Servicio Técnico (reparaciones de equipos en general)"
+                elif tipo_solicitud_distribuidor == "Atención Técnica":
+                    data['motivo_solicitud'] = "Servicio Post Venta (para alguno de nuestros productos adquiridos)"
+                elif tipo_solicitud_distribuidor == "Cambio por Falla Crítica":
+                    data['motivo_solicitud'] = "Cambio por falla de funcionamiento crítica"
+                
+                data['equipo_corresponde_a'] = "Distribuidor"
+                # Preguntar garantía y mostrar equipo
+                mostrar_flujo_garantia_distribuidor_directo(data)
         
         # SECCIÓN 4: Institución directo
         elif quien_completa == "Institución":
-            mostrar_seccion_institucion(data, es_directo=True)
+            # Primero mostrar datos de la institución
+            mostrar_datos_institucion_simple(data)
+            
+            # Luego preguntar tipo de solicitud
+            tipo_solicitud_institucion = st.selectbox(
+                "Tipo de solicitud: *",
+                ["", "Baja Alquiler", "Cambio Alquiler", "Servicio Técnico", "Atención Técnica", "Cambio por Falla Crítica"],
+                key=f"tipo_solic_inst_{st.session_state.form_key}"
+            )
+            
+            if tipo_solicitud_institucion in ["Baja Alquiler", "Cambio Alquiler"]:
+                if tipo_solicitud_institucion == "Baja Alquiler":
+                    data['motivo_solicitud'] = "Baja de Alquiler"
+                    # Mostrar sección de motivo de baja
+                    mostrar_seccion_baja_alquiler(data)
+                else:
+                    data['motivo_solicitud'] = "Cambio de Alquiler"
+                    # Mostrar sección de motivo de cambio
+                    mostrar_seccion_cambio_alquiler(data)
+                
+                data['equipo_corresponde_a'] = "Institución"
+                # Equipos se muestran UNA SOLA VEZ aquí
+                mostrar_seccion_equipos(data, contexto=tipo_solicitud_institucion.lower().replace(" ", "_"))
+                
+            elif tipo_solicitud_institucion in ["Servicio Técnico", "Atención Técnica", "Cambio por Falla Crítica"]:
+                # Normalizar motivo
+                if tipo_solicitud_institucion == "Servicio Técnico":
+                    data['motivo_solicitud'] = "Servicio Técnico (reparaciones de equipos en general)"
+                elif tipo_solicitud_institucion == "Atención Técnica":
+                    data['motivo_solicitud'] = "Servicio Post Venta (para alguno de nuestros productos adquiridos)"
+                elif tipo_solicitud_institucion == "Cambio por Falla Crítica":
+                    data['motivo_solicitud'] = "Cambio por falla de funcionamiento crítica"
+                
+                data['equipo_corresponde_a'] = "Institución"
+                # Preguntar garantía y mostrar equipo
+                mostrar_flujo_garantia_institucion_directo(data)
         
         # SECCIÓN 5: Paciente/Particular directo
         elif quien_completa == "Paciente/Particular":
-            mostrar_seccion_paciente(data, es_directo=True)
+            # Primero mostrar datos del paciente
+            mostrar_datos_paciente_simple(data)
+            
+            # Luego preguntar tipo de solicitud
+            tipo_solicitud_paciente = st.selectbox(
+                "Tipo de solicitud: *",
+                ["", "Baja Alquiler", "Cambio Alquiler", "Servicio Técnico", "Atención Técnica", "Cambio por Falla Crítica"],
+                key=f"tipo_solic_pac_{st.session_state.form_key}"
+            )
+            
+            if tipo_solicitud_paciente in ["Baja Alquiler", "Cambio Alquiler"]:
+                if tipo_solicitud_paciente == "Baja Alquiler":
+                    data['motivo_solicitud'] = "Baja de Alquiler"
+                    # Mostrar sección de motivo de baja
+                    mostrar_seccion_baja_alquiler(data)
+                else:
+                    data['motivo_solicitud'] = "Cambio de Alquiler"
+                    # Mostrar sección de motivo de cambio
+                    mostrar_seccion_cambio_alquiler(data)
+                
+                data['equipo_corresponde_a'] = "Paciente/Particular"
+                # Equipos se muestran UNA SOLA VEZ aquí
+                mostrar_seccion_equipos(data, contexto=tipo_solicitud_paciente.lower().replace(" ", "_"))
+                
+            elif tipo_solicitud_paciente in ["Servicio Técnico", "Atención Técnica", "Cambio por Falla Crítica"]:
+                # Normalizar motivo
+                if tipo_solicitud_paciente == "Servicio Técnico":
+                    data['motivo_solicitud'] = "Servicio Técnico (reparaciones de equipos en general)"
+                elif tipo_solicitud_paciente == "Atención Técnica":
+                    data['motivo_solicitud'] = "Servicio Post Venta (para alguno de nuestros productos adquiridos)"
+                elif tipo_solicitud_paciente == "Cambio por Falla Crítica":
+                    data['motivo_solicitud'] = "Cambio por falla de funcionamiento crítica"
+                
+                data['equipo_corresponde_a'] = "Paciente/Particular"
+                # Preguntar propiedad/garantía y mostrar equipo
+                mostrar_flujo_garantia_paciente_directo(data)
         
         # Obtener el motivo según el tipo de solicitante
         motivo = data.get('motivo_solicitud', '')
@@ -2692,6 +2970,7 @@ def main():
                     "Mantenimiento preventivo",
                     "Falla en display/pantalla",
                     "Problema de conectividad"
+                    "Otras fallas"
                 ]
                 
                 fallas_seleccionadas = st.multiselect(
@@ -2788,17 +3067,11 @@ def main():
                 'detalle_fallo': detalle_fallo,
                 'diagnostico_paciente': diagnostico_paciente
             })
+            
+            # Después de Detalles ST, mostrar Datos del Equipo (para ST/AT/FC)
+            mostrar_seccion_equipo_simple(data)
         
-       # SECCIÓN 7: Motivo de Baja (solo para Baja de Alquiler)
-        if motivo == "Baja de Alquiler":
-            mostrar_seccion_baja_alquiler(data)
-
-        # SECCIÓN 8: Datos de Equipos
-        # Solo mostrar si hay motivo Y NO es un equipo de stock o baja de demo (que ya se mostró antes)
-        if motivo and data.get('equipo_corresponde_a') not in ["Equipo de Stock", "Baja de demo"]:
-            mostrar_seccion_equipos(data, contexto="principal")
-                
-        
+       
         # Botón de envío
         # Verificar si hay motivo según el tipo de solicitante
         tiene_motivo = False
@@ -2916,6 +3189,319 @@ def mostrar_resumen_y_descarga():
 
 
 # Actualizar las funciones de secciones para incluir keys
+
+# ===========================================================================
+# NUEVAS FUNCIONES PARA V14 - ESTRUCTURA INVERTIDA
+# ===========================================================================
+
+def mostrar_datos_paciente_simple(data):
+    """
+    Muestra solo los campos de datos del paciente sin preguntar por motivo ni propiedad.
+    Se usa cuando ya se seleccionó el tipo de solicitud previamente.
+    """
+    st.markdown('<div class="section-header"><h2>Datos del Paciente</h2></div>', unsafe_allow_html=True)
+    
+    form_key = st.session_state.form_key
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        nombre_apellido = st.text_input("Nombre y Apellido *", key=f"pac_nombre_{form_key}")
+        dni_input = st.text_input("DNI * (solo números)", placeholder="12345678", key=f"pac_dni_{form_key}", max_chars=8)
+        dni = validar_solo_numeros(dni_input)
+        if dni_input and not dni_input.isdigit():
+            st.warning("⚠️ Solo se permiten números en el DNI")
+    
+    with col2:
+        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"pac_contacto_tec_{form_key}")
+        contacto_telefono = ""
+        if contacto_tecnico == "Sí":
+            telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"pac_tel_{form_key}", max_chars=15)
+            contacto_telefono = validar_solo_numeros(telefono_input)
+            if telefono_input and not telefono_input.isdigit():
+                st.warning("⚠️ Solo se permiten números en el teléfono")
+    
+    data.update({
+        'nombre_apellido_paciente': nombre_apellido,
+        'dni_paciente': dni,
+        'telefono_paciente': contacto_telefono,
+        'contacto_tecnico': contacto_tecnico
+    })
+
+
+def mostrar_datos_distribuidor_simple(data):
+    """
+    Muestra solo los campos de datos del distribuidor sin preguntar por motivo ni propiedad.
+    Se usa cuando ya se seleccionó el tipo de solicitud previamente.
+    """
+    st.markdown('<div class="section-header"><h2>Datos del Distribuidor</h2></div>', unsafe_allow_html=True)
+    
+    form_key = st.session_state.form_key
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        nombre_fantasia = st.text_input("Nombre de Fantasía *", placeholder="Ejemplo: Syemed", key=f"dist_nombre_{form_key}")
+        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"dist_razon_{form_key}")
+        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"dist_cuit_{form_key}", max_chars=11)
+        cuit = validar_solo_numeros(cuit_input)
+        if cuit_input and not cuit_input.isdigit():
+            st.warning("⚠️ Solo se permiten números en el CUIT")
+    
+    with col2:
+        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"dist_contacto_tec_{form_key}")
+        contacto_telefono = ""
+        contacto_nombre = ""
+        if contacto_tecnico == "Sí":
+            telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"dist_tel_{form_key}", max_chars=15)
+            contacto_telefono = validar_solo_numeros(telefono_input)
+            if telefono_input and not telefono_input.isdigit():
+                st.warning("⚠️ Solo se permiten números en el teléfono")
+            contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"dist_contacto_{form_key}")
+    
+    data.update({
+        'nombre_fantasia': nombre_fantasia,
+        'razon_social': razon_social,
+        'cuit': cuit,
+        'contacto_nombre': contacto_nombre,
+        'contacto_telefono': contacto_telefono,
+        'contacto_tecnico': contacto_tecnico
+    })
+
+
+def mostrar_datos_institucion_simple(data):
+    """
+    Muestra solo los campos de datos de la institución sin preguntar por motivo ni propiedad.
+    Se usa cuando ya se seleccionó el tipo de solicitud previamente.
+    """
+    st.markdown('<div class="section-header"><h2>Datos de la Institución</h2></div>', unsafe_allow_html=True)
+    
+    form_key = st.session_state.form_key
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        nombre_fantasia = st.text_input("Nombre del Hospital/Clínica/Sanatorio *", placeholder="Ejemplo: Hospital Central", key=f"inst_nombre_{form_key}")
+        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Hospital Central SA", key=f"inst_razon_{form_key}")
+        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"inst_cuit_{form_key}", max_chars=11)
+        cuit = validar_solo_numeros(cuit_input)
+        if cuit_input and not cuit_input.isdigit():
+            st.warning("⚠️ Solo se permiten números en el CUIT")
+    
+    with col2:
+        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"inst_contacto_tec_{form_key}")
+        contacto_telefono = ""
+        contacto_nombre = ""
+        if contacto_tecnico == "Sí":
+            telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"inst_tel_{form_key}", max_chars=15)
+            contacto_telefono = validar_solo_numeros(telefono_input)
+            if telefono_input and not telefono_input.isdigit():
+                st.warning("⚠️ Solo se permiten números en el teléfono")
+            contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"inst_contacto_{form_key}")
+    
+    data.update({
+        'nombre_fantasia': nombre_fantasia,
+        'razon_social': razon_social,
+        'cuit': cuit,
+        'contacto_nombre': contacto_nombre,
+        'contacto_telefono': contacto_telefono,
+        'contacto_tecnico': contacto_tecnico
+    })
+
+
+def mostrar_flujo_garantia_paciente_colaborador(data):
+    """
+    Esta función ya no es necesaria.
+    La pregunta de propiedad del equipo ahora está en mostrar_seccion_equipo_simple.
+    Se mantiene la función vacía por compatibilidad con el flujo.
+    """
+    # Ya no se pregunta nada aquí, todo está en Datos del Equipo
+    pass
+
+
+def mostrar_flujo_garantia_distribuidor_colaborador(data):
+    """
+    Información inicial para distribuidor cuando un colaborador hace la solicitud.
+    
+    NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
+    Esta función solo muestra el header y luego pasa a Datos del Distribuidor
+    """
+    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
+    
+    # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
+    # Directamente mostrar datos del distribuidor
+    mostrar_datos_distribuidor_simple(data)
+
+
+def mostrar_flujo_garantia_institucion_colaborador(data):
+    """
+    Información inicial para institución cuando un colaborador hace la solicitud.
+    
+    NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
+    Esta función solo muestra el header y luego pasa a Datos de la Institución
+    """
+    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
+    
+    # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
+    # Directamente mostrar datos de la institución
+    mostrar_datos_institucion_simple(data)
+
+def mostrar_flujo_garantia_paciente_directo(data):
+    """
+    Esta función ya no es necesaria.
+    La pregunta de propiedad del equipo ahora está en mostrar_seccion_equipo_simple.
+    Se mantiene la función vacía por compatibilidad con el flujo.
+    """
+    # Ya no se pregunta nada aquí, todo está en Datos del Equipo
+    pass
+
+
+def mostrar_flujo_garantia_distribuidor_directo(data):
+    """
+    Información inicial para distribuidor cuando hace la solicitud directamente.
+    Los datos del distribuidor ya fueron capturados.
+    
+    NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
+    Esta función ya no hace nada porque los datos ya fueron capturados antes.
+    """
+    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
+    
+    # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
+    # Los datos del distribuidor ya fueron capturados en mostrar_datos_distribuidor_simple antes
+
+
+def mostrar_flujo_garantia_institucion_directo(data):
+    """
+    Información inicial para institución cuando hace la solicitud directamente.
+    Los datos de la institución ya fueron capturados.
+    
+    NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
+    Esta función ya no hace nada porque los datos ya fueron capturados antes.
+    """
+    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
+    
+    # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
+    # Los datos de la institución ya fueron capturados en mostrar_datos_institucion_simple antes
+
+
+def mostrar_seccion_equipo_simple(data):
+    """
+    Muestra la sección para cargar un solo equipo (para ST, AT, FC).
+    Esta es la versión "B" de equipos en el diagrama.
+    INCLUYE pregunta de propiedad para pacientes, garantía y número OV.
+    Solo tipo de equipo es obligatorio.
+    """
+    st.markdown('<div class="section-header"><h2>Datos del Equipo</h2></div>', unsafe_allow_html=True)
+    
+    form_key = st.session_state.form_key
+    motivo = data.get('motivo_solicitud', '')
+    quien_completa = data.get('quien_completa', '')
+    equipo_corresponde_a = data.get('equipo_corresponde_a', '')
+    
+    # NUEVO: Si es paciente, preguntar propiedad AQUÍ (no en sección anterior)
+    propiedad_equipo = None
+    obra_social = ""
+    fecha_entrega = None
+    
+    if quien_completa == "Paciente/Particular" or equipo_corresponde_a == "Paciente/Particular":
+        st.markdown("### Propiedad del Equipo")
+        propiedad_equipo = st.selectbox(
+            "¿El equipo es propio o se lo entregaron? *",
+            ["", "Propio", "Se lo entregaron"],
+            key=f"eq_propiedad_{form_key}"
+        )
+        
+        if propiedad_equipo == "Se lo entregaron":
+            obra_social = st.text_input(
+                "Obra Social *",
+                placeholder="Nombre de la obra social",
+                key=f"eq_os_{form_key}"
+            )
+            fecha_entrega = st.date_input(
+                "Fecha de entrega *",
+                key=f"eq_fecha_entrega_{form_key}",
+                max_value=date.today(),
+                format="DD/MM/YYYY"
+            )
+        
+        st.markdown("---")
+    
+    # Datos básicos del equipo
+    col1, col2 = st.columns(2)
+    with col1:
+        tipo_equipo = st.selectbox("Tipo de Equipo *", TIPOS_EQUIPO, key=f"eq_tipo_{form_key}")
+        marca_equipo = st.selectbox("Marca de Equipo", MARCAS_EQUIPO, key=f"eq_marca_{form_key}")  # ✅ Opcional
+    
+    with col2:
+        modelo_equipo = st.selectbox("Modelo de Equipo", MODELOS_EQUIPO, key=f"eq_modelo_{form_key}")  # ✅ Opcional
+        numero_serie = st.text_input("Número de Serie", key=f"eq_serie_{form_key}")  # ✅ Opcional
+    
+    # Pregunta de garantía
+    st.markdown("---")
+    st.markdown("### Estado de Garantía")
+    
+    en_garantia = st.selectbox(
+        "¿El equipo está en garantía? *",
+        ["", "Sí", "No", "No lo sé"],
+        key=f"eq_garantia_{form_key}"
+    )
+    
+    numero_ov = None
+    comentario_garantia = ""
+    
+    if en_garantia == "Sí":
+        numero_ov = st.text_input(
+            "Número de OV (opcional)",
+            placeholder="Ingrese el número de orden de venta",
+            key=f"eq_ov_{form_key}"
+        )
+    elif en_garantia == "No lo sé":
+        comentario_garantia = st.text_area(
+            "Comentarios sobre la garantía (opcional)",
+            placeholder="Agregue información adicional que pueda ayudar a determinar el estado de garantía",
+            key=f"eq_comentario_garantia_{form_key}",
+            height=100
+        )
+    
+    # Actualizar data con información de garantía y propiedad
+    data.update({
+        'equipo_propiedad': propiedad_equipo,
+        'obra_social': obra_social,
+        'fecha_entrega': fecha_entrega,
+        'en_garantia': en_garantia,
+        'numero_ov': numero_ov,
+        'comentario_garantia': comentario_garantia
+    })
+    
+    st.markdown("---")
+    
+    # Fotos/videos de fallas si aplica
+    fotos_equipo = []
+    if motivo in ["Servicio Técnico (reparaciones de equipos en general)", 
+                  "Servicio Post Venta (para alguno de nuestros productos adquiridos)", 
+                  "Cambio por falla de funcionamiento crítica"]:
+        st.markdown("**📸 Fotos/videos de fallas** (opcional)")
+        fotos_equipo = st.file_uploader(
+            "Adjunte fotos o videos del problema",
+            type=['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'mkv'],
+            accept_multiple_files=True,
+            key=f"eq_fotos_{form_key}",
+            help="Puede adjuntar múltiples archivos"
+        )
+    
+    # Almacenar datos del equipo en formato de lista para compatibilidad
+    data['equipos'] = [{
+        'tipo_equipo': tipo_equipo,
+        'marca': marca_equipo if marca_equipo != "Seleccionar marca..." else None,
+        'modelo': modelo_equipo if modelo_equipo != "Seleccionar modelo..." else None,
+        'numero_serie': numero_serie if numero_serie else None,
+        'en_garantia': en_garantia,
+        'numero_ov': numero_ov,
+        'fecha_compra': data.get('fecha_compra', None),
+        'fotos_equipo': fotos_equipo if fotos_equipo else []
+    }]
+
+# ===========================================================================
+# FIN DE NUEVAS FUNCIONES V14
+# ===========================================================================
+
 def mostrar_seccion_distribuidor(data, es_directo=False):
     """VERSIÓN NUEVA - Reemplaza la función existente"""
     st.markdown(f'<div class="section-header"><h2>Distribuidor</h2></div>', unsafe_allow_html=True)
@@ -3230,6 +3816,63 @@ def mostrar_seccion_baja_alquiler(data):
         'fotos_falla_baja': fotos_falla_baja if fotos_falla_baja else []
     })
 
+
+def mostrar_seccion_cambio_alquiler(data):
+    """Muestra la sección para motivo de cambio de alquiler"""
+    st.markdown('<div class="section-header"><h2>Motivo de Cambio de Alquiler</h2></div>', unsafe_allow_html=True)
+    
+    form_key = st.session_state.form_key
+    
+    st.info("📝 Por favor, especifique el motivo del cambio de alquiler")
+    motivo_cambio_alquiler = st.text_area(
+        "Motivo del cambio de alquiler *",
+        placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
+        key=f"motivo_cambio_general_{form_key}",
+        height=100
+    )
+    
+    equipo_falla_cambio = st.selectbox(
+        "¿El equipo que está devolviendo presenta alguna falla?",
+        ["", "Sí", "No"],
+        key=f"equipo_falla_cambio_general_{form_key}"
+    )
+    
+    fotos_falla_cambio = []
+    if equipo_falla_cambio == "Sí":
+        st.markdown("#### 📸 Fotos/Videos de la falla (opcional)")
+        fotos_falla_cambio = st.file_uploader(
+            "Adjunte fotos o videos que muestren la falla",
+            type=['jpg', 'jpeg', 'png', 'mp4', 'mov'],
+            accept_multiple_files=True,
+            key=f"fotos_falla_cambio_general_{form_key}",
+            help="Puede adjuntar múltiples archivos"
+        )
+    
+    data.update({
+        'motivo_cambio_alquiler': motivo_cambio_alquiler,
+        'equipo_falla_cambio': equipo_falla_cambio,
+        'fotos_falla_cambio': fotos_falla_cambio if fotos_falla_cambio else []
+    })
+
+def mostrar_seccion_baja_demo(data):
+    """Muestra la sección específica para Baja de demo con campo adicional de Lugar/Institución"""
+    st.markdown('<div class="section-header"><h2>Baja de Demo</h2></div>', unsafe_allow_html=True)
+    
+    form_key = st.session_state.form_key
+    
+    st.info("📝 Por favor, indique dónde se probó el equipo de demostración")
+    lugar_prueba = st.text_area(
+        "Lugar/Institución/Hospital donde se probó el equipo *",
+        placeholder="Ej: Hospital Central - Buenos Aires, Clínica San José, etc.",
+        key=f"lugar_prueba_demo_{form_key}",
+        height=100,
+        help="Esta información se guardará en las observaciones del equipo"
+    )
+    
+    data.update({
+        'lugar_prueba_demo': lugar_prueba
+    })
+
 def mostrar_seccion_equipos(data, contexto="general"):
     st.markdown('<div class="section-header"><h2>Datos de los Equipos</h2></div>', unsafe_allow_html=True)
     
@@ -3263,11 +3906,11 @@ def mostrar_seccion_equipos(data, contexto="general"):
             col1, col2 = st.columns(2)
             with col1:
                 tipo_equipo = st.selectbox(f"Tipo de Equipo ({i+1}) *", TIPOS_EQUIPO, key=f"tipo_{contexto}_{i}_{form_key}")
-                marca_equipo = st.selectbox(f"Marca de Equipo ({i+1}) *", MARCAS_EQUIPO, key=f"marca_{contexto}_{i}_{form_key}")
+                marca_equipo = st.selectbox(f"Marca de Equipo ({i+1})", MARCAS_EQUIPO, key=f"marca_{contexto}_{i}_{form_key}")
                 
             with col2:
-                modelo_equipo = st.selectbox(f"Modelo de Equipo ({i+1}) *", MODELOS_EQUIPO, key=f"modelo_{contexto}_{i}_{form_key}")
-                numero_serie = st.text_input(f"Número de Serie ({i+1}) *", key=f"serie_{contexto}_{i}_{form_key}")
+                modelo_equipo = st.selectbox(f"Modelo de Equipo ({i+1})", MODELOS_EQUIPO, key=f"modelo_{contexto}_{i}_{form_key}")
+                numero_serie = st.text_input(f"Número de Serie ({i+1})", key=f"serie_{contexto}_{i}_{form_key}")
                 
                 # CAMBIO: Obtener garantía desde Información del Equipo (data)
                 # Ya no se pregunta aquí, se obtiene de la sección anterior
