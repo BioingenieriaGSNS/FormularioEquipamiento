@@ -659,11 +659,18 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         else:
             comentarios_paragraph = 'N/A'
         
+        # Preparar logística_cargo como Paragraph para mejor formato de textos largos
+        logistica_texto = data.get('logistica_cargo', 'N/A')
+        if logistica_texto and logistica_texto.strip() and logistica_texto != 'N/A':
+            logistica_paragraph = Paragraph(logistica_texto, estilo_normal)
+        else:
+            logistica_paragraph = 'N/A'
+        
         info_general.extend([
             ["Área solicitante:", data.get('area_solicitante', 'N/A')],
             ["Solicitante:", data.get('solicitante', 'N/A')],
             ["Nivel de Urgencia:", nivel_urgencia_texto],
-            ["Logística a cargo:", data.get('logistica_cargo', 'N/A')],
+            ["Logística a cargo:", logistica_paragraph],
             ["Comentarios del caso:", comentarios_paragraph],
         ])
         
@@ -1187,109 +1194,46 @@ def conectar_bd():
 
 def generar_codigo_categoria(data):
     """
-    Genera el código de categoría según las reglas NUEVAS:
+    Genera el código de categoría simplificado para el asunto del email:
     
-    Para opciones especiales:
-    * S: Equipo de Stock
-    * BD: Baja de Demo
-    
-    Para Distribuidor/Institución:
-    Si Alquilado:
-      A/ST/R   -> Servicio Técnico
-      A/AT     -> Asistencia Técnica  
-      A/BA     -> Baja de Alquiler
-      A/CA     -> Cambio de Alquiler
-      A/FC     -> Cambio por Falla Crítica
-    
-    Si Propio con Garantía Sí:
-      G/ST/R   -> Servicio Técnico
-      G/AT     -> Asistencia Técnica
-      G/FC     -> Cambio por Falla Crítica
-    
-    Si Propio con Garantía No:
-      ST/R     -> Servicio Técnico
-      AT       -> Asistencia Técnica
-      FC       -> Cambio por Falla Crítica
-    
-    Para Paciente/Particular:
-    Si se lo entregaron:
-      ST/R     -> Servicio Técnico
-      AT       -> Asistencia Técnica
-      FC       -> Cambio por Falla Crítica
-    
-    Si lo compró con Garantía Sí:
-      G/ST/R   -> Servicio Técnico
-      G/AT     -> Asistencia Técnica
-      G/FC     -> Cambio por Falla Crítica
+    - Baja Alquiler -> BA
+    - Cambio Alquiler -> CA
+    - Servicio Técnico -> ST (sin garantía) o ST/G (con garantía)
+    - Atención Técnica -> AT (sin garantía) o AT/G (con garantía)
+    - Cambio por falla crítica -> FC (sin garantía) o FC/G (con garantía)
+    - Equipo de Stock -> S
+    - Baja de demo -> BD
     """
     motivo = data.get('motivo_solicitud', '')
-    equipo_propiedad = data.get('equipo_propiedad', '')
-    quien_completa = data.get('quien_completa', '')
     
-    # Determinar si hay equipos en garantía
-    equipos = data.get('equipos', [])
-    tiene_garantia = any(equipo.get('en_garantia', False) for equipo in equipos)
-    
-    # Obtener el valor de en_garantia desde data (de la sección Información del Equipo)
+    # Determinar si hay garantía
+    tiene_garantia = False
     en_garantia_data = data.get('en_garantia', None)
     if en_garantia_data == "Sí":
         tiene_garantia = True
-    elif en_garantia_data in ["No", "No lo sé"]:
-        tiene_garantia = False
     
-    # Mapear motivos a códigos
-    if motivo == "Equipo de Stock":
+    # Si no hay en_garantia en data, verificar equipos
+    if en_garantia_data is None:
+        equipos = data.get('equipos', [])
+        tiene_garantia = any(equipo.get('en_garantia', False) for equipo in equipos)
+    
+    # Mapeo directo según motivo
+    if motivo == "Baja de Alquiler":
+        return "BA"
+    elif motivo == "Cambio de Alquiler":
+        return "CA"
+    elif motivo == "Servicio Técnico (reparaciones de equipos en general)":
+        return "ST/G" if tiene_garantia else "ST"
+    elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
+        return "AT/G" if tiene_garantia else "AT"
+    elif motivo == "Cambio por falla de funcionamiento crítica":
+        return "FC/G" if tiene_garantia else "FC"
+    elif motivo == "Equipo de Stock":
         return "S"
     elif motivo == "Baja de demo":
         return "BD"
-    elif motivo == "Baja de Alquiler":
-        return "A/BA"
-    elif motivo == "Cambio de Alquiler":
-        return "A/CA"
-    
-    # Para Servicio Técnico, Asistencia Técnica (Post Venta), Cambio por falla crítica
-    if motivo == "Servicio Técnico (reparaciones de equipos en general)":
-        codigo_motivo = "ST/R"
-    elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
-        codigo_motivo = "AT"
-    elif motivo == "Cambio por falla de funcionamiento crítica":
-        codigo_motivo = "FC"
     else:
         return "N/A"
-    
-    # Para Distribuidor/Institución
-    if quien_completa in ["Distribuidor", "Institución", "Colaborador de Syemed"]:
-        equipo_origen = data.get('equipo_origen', '')
-        
-        # Si es alquilado
-        if equipo_propiedad == "Alquilado":
-            return f"A/{codigo_motivo}"
-        
-        # Si es propio
-        elif equipo_propiedad == "Propio":
-            if tiene_garantia:
-                return f"G/{codigo_motivo}"
-            else:
-                return codigo_motivo
-    
-    # Para Paciente/Particular
-    elif quien_completa == "Paciente/Particular":
-        equipo_origen = data.get('equipo_origen', '')
-        
-        # Si se lo entregaron
-        if equipo_origen == "Se lo entregaron":
-            return codigo_motivo
-        
-        # Si lo compró de manera directa
-        elif equipo_origen == "Lo compró de manera directa":
-            if tiene_garantia:
-                return f"G/{codigo_motivo}"
-            else:
-                return codigo_motivo
-        elif equipo_propiedad == "Alquilado":
-            return f"A/{codigo_motivo}"
-    
-    return "N/A"
 
 def convertir_garantia_a_boolean(valor_garantia):
     """
@@ -2260,8 +2204,14 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
                 "Motivo del cambio de alquiler *",
                 placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
                 key=f"{tipo_cliente}_motivo_cambio_{form_key}",
-                height=100
+                height=100,
+                max_chars=300,
+                help="Máximo 300 caracteres"
             )
+            if motivo_cambio_alquiler:
+                caracteres_restantes = 300 - len(motivo_cambio_alquiler)
+                if caracteres_restantes < 30:
+                    st.warning(f"⚠️ {caracteres_restantes} caracteres restantes")
             
             # Preguntar si el equipo falla
             equipo_falla_cambio = st.selectbox(
@@ -2402,8 +2352,14 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
                 "Motivo del cambio de alquiler *",
                 placeholder="Ej: Cambio de equipo por uno de mayor capacidad, equipo obsoleto, etc.",
                 key=f"p_motivo_cambio_{form_key}",
-                height=100
+                height=100,
+                max_chars=300,
+                help="Máximo 300 caracteres"
             )
+            if motivo_cambio_alquiler:
+                caracteres_restantes = 300 - len(motivo_cambio_alquiler)
+                if caracteres_restantes < 30:
+                    st.warning(f"⚠️ {caracteres_restantes} caracteres restantes")
             
             # Preguntar si el equipo falla
             equipo_falla_cambio = st.selectbox(
@@ -2717,9 +2673,14 @@ def main():
                     "Detalles del transporte externo *",
                     placeholder="Indique nombre de la empresa de transporte, datos de contacto, horarios, etc.",
                     height=150,
+                    max_chars=150,
                     key=f"detalles_transporte_{st.session_state.form_key}",
-                    help="Información sobre el transporte externo"
+                    help="Información sobre el transporte externo (máximo 150 caracteres - se concatena con logística)"
                 )
+                if detalles_transporte:
+                    caracteres_restantes = 150 - len(detalles_transporte)
+                    if caracteres_restantes < 20:
+                        st.warning(f"⚠️ {caracteres_restantes} caracteres restantes")
                 
                 guia_transporte = st.file_uploader(
                     "Guía de transporte (PDF o imagen)",
@@ -2732,8 +2693,14 @@ def main():
                 "Comentarios sobre el caso", 
                 placeholder="NOTA 1: En el caso de que la solicitud sea por un Equipo del Stock indicar si vuelve a stock de venta...\nNOTA 2: Colocar dirección y datos para la entrega si corresponde.", 
                 height=100,
-                key=f"comentarios_{st.session_state.form_key}"
+                max_chars=500,
+                key=f"comentarios_{st.session_state.form_key}",
+                help="Máximo 500 caracteres"
             )
+            if comentarios_caso:
+                caracteres_restantes = 500 - len(comentarios_caso)
+                if caracteres_restantes < 50:
+                    st.warning(f"⚠️ {caracteres_restantes} caracteres restantes")
             
             # NUEVA ESTRUCTURA V14: Primero tipo de solicitud, luego tipo de usuario
             tipo_solicitud = st.selectbox(
@@ -3031,8 +2998,14 @@ def main():
                     "Otros problemas o detalles adicionales",
                     placeholder="Describa cualquier otro problema o detalle relevante...",
                     key=f"detalle_st_{st.session_state.form_key}",
-                    height=100
+                    height=100,
+                    max_chars=500,
+                    help="Máximo 500 caracteres"
                 )
+                if detalle_fallo:
+                    caracteres_restantes = 500 - len(detalle_fallo)
+                    if caracteres_restantes < 50:
+                        st.warning(f"⚠️ {caracteres_restantes} caracteres restantes")
             
             # ASISTENCIA TÉCNICA
             elif motivo == "Servicio Post Venta (para alguno de nuestros productos adquiridos)":
@@ -3073,8 +3046,14 @@ def main():
                     "Otras consultas o detalles adicionales",
                     placeholder="Describa su consulta o necesidad...",
                     key=f"detalle_pv_{st.session_state.form_key}",
-                    height=100
+                    height=100,
+                    max_chars=500,
+                    help="Máximo 500 caracteres"
                 )
+                if detalle_fallo:
+                    caracteres_restantes = 500 - len(detalle_fallo)
+                    if caracteres_restantes < 50:
+                        st.warning(f"⚠️ {caracteres_restantes} caracteres restantes")
             
             # FALLA CRÍTICA
             elif motivo == "Cambio por falla de funcionamiento crítica":
@@ -3099,8 +3078,14 @@ def main():
                     "Describa la falla crítica *",
                     placeholder="Describa detalladamente la falla que justifica el cambio del equipo. Sea específico sobre por qué es crítica.",
                     key=f"falla_critica_{st.session_state.form_key}",
-                    height=150
+                    height=150,
+                    max_chars=500,
+                    help="Máximo 500 caracteres"
                 )
+                if detalle_fallo:
+                    caracteres_restantes = 500 - len(detalle_fallo)
+                    if caracteres_restantes < 50:
+                        st.warning(f"⚠️ {caracteres_restantes} caracteres restantes")
                                
             diagnostico_paciente = st.text_area(
                 "Diagnóstico del Paciente (si aplica)",
@@ -3471,32 +3456,44 @@ def mostrar_seccion_equipo_simple(data):
         modelo_equipo = st.selectbox("Modelo de Equipo", MODELOS_EQUIPO, key=f"eq_modelo_{form_key}")  # ✅ Opcional
         numero_serie = st.text_input("Número de Serie", key=f"eq_serie_{form_key}")  # ✅ Opcional
     
-    # Pregunta de garantía
-    st.markdown("---")
-    st.markdown("### Estado de Garantía")
-    
-    en_garantia = st.selectbox(
-        "¿El equipo está en garantía? *",
-        ["", "Sí", "No", "No lo sé"],
-        key=f"eq_garantia_{form_key}"
-    )
-    
+    # Pregunta de garantía - SOLO si el equipo es PROPIO o no aplica la pregunta de propiedad
+    en_garantia = None
     numero_ov = None
     comentario_garantia = ""
     
-    if en_garantia == "Sí":
-        numero_ov = st.text_input(
-            "Número de OV (opcional)",
-            placeholder="Ingrese el número de orden de venta",
-            key=f"eq_ov_{form_key}"
+    # Solo preguntar garantía si:
+    # 1. No es paciente/particular (distribuidores e instituciones siempre se pregunta)
+    # 2. O si es paciente pero el equipo es PROPIO (no "Se lo entregaron")
+    mostrar_garantia = True
+    if (quien_completa == "Paciente/Particular" or equipo_corresponde_a == "Paciente/Particular"):
+        if propiedad_equipo == "Se lo entregaron":
+            mostrar_garantia = False
+            # Si se lo entregaron, no está en garantía
+            en_garantia = "No"
+    
+    if mostrar_garantia:
+        st.markdown("---")
+        st.markdown("### Estado de Garantía")
+        
+        en_garantia = st.selectbox(
+            "¿El equipo está en garantía? *",
+            ["", "Sí", "No", "No lo sé"],
+            key=f"eq_garantia_{form_key}"
         )
-    elif en_garantia == "No lo sé":
-        comentario_garantia = st.text_area(
-            "Comentarios sobre la garantía (opcional)",
-            placeholder="Agregue información adicional que pueda ayudar a determinar el estado de garantía",
-            key=f"eq_comentario_garantia_{form_key}",
-            height=100
-        )
+        
+        if en_garantia == "Sí":
+            numero_ov = st.text_input(
+                "Número de OV (opcional)",
+                placeholder="Ingrese el número de orden de venta",
+                key=f"eq_ov_{form_key}"
+            )
+        elif en_garantia == "No lo sé":
+            comentario_garantia = st.text_area(
+                "Comentarios sobre la garantía (opcional)",
+                placeholder="Agregue información adicional que pueda ayudar a determinar el estado de garantía",
+                key=f"eq_comentario_garantia_{form_key}",
+                height=100
+            )
     
     # Actualizar data con información de garantía y propiedad
     data.update({
