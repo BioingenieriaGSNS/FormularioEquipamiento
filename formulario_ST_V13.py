@@ -2969,7 +2969,7 @@ def main():
                     "Desgaste de piezas",
                     "Mantenimiento preventivo",
                     "Falla en display/pantalla",
-                    "Problema de conectividad"
+                    "Problema de conectividad",
                     "Otras fallas"
                 ]
                 
@@ -3011,7 +3011,8 @@ def main():
                     "Necesito accesorios",
                     "Necesito repuestos",
                     "Actualización de software",
-                    "Configuración inicial"
+                    "Configuración inicial",
+                    "Otros"
                 ]
                 
                 fallas_seleccionadas = st.multiselect(
