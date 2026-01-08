@@ -565,17 +565,8 @@ def validar_campos_obligatorios(data):
     ]
     
     if not equipos_validos:
-        errores.append("Debe registrar al menos un equipo")
-    else:
-        for i, equipo in enumerate(equipos_validos, 1):
-            if not equipo.get('marca') or equipo.get('marca') == "Seleccionar marca...":
-                errores.append(f"La marca del equipo {i} es obligatoria")
-            if not equipo.get('modelo') or equipo.get('modelo') == "Seleccionar modelo...":
-                errores.append(f"El modelo del equipo {i} es obligatorio")
-            if not equipo.get('numero_serie'):
-                errores.append(f"El número de serie del equipo {i} es obligatorio")
-            #if not equipo.get('en_garantia'):
-                #errores.append(f"Debe indicar si el equipo {i} está en garantía")
+        errores.append("Debe registrar al menos un equipo con tipo especificado")
+    # Ya no se validan marca, modelo ni número de serie como obligatorios
     
     return len(errores) == 0, errores
 
@@ -1708,7 +1699,7 @@ def insertar_solicitud(data, pdf_url=None):
                 tipo_archivo = archivo_info.get('tipo')
                 
                 # Determinar categoría y equipo_id
-                categoria = 'general'
+                categoria = 'falla'  # Por defecto usar 'falla' (categoría válida)
                 equipo_id_ref = None
                 
                 if tipo_archivo == 'factura':
@@ -1722,6 +1713,23 @@ def insertar_solicitud(data, pdf_url=None):
                         equipo_id_ref = equipos_ids[0]  # Vincular al primer equipo
                     elif isinstance(equipo_num, int) and equipo_num <= len(equipos_ids):
                         equipo_id_ref = equipos_ids[equipo_num - 1]
+                    
+                    # Insertar factura normalmente
+                    cursor.execute("""
+                        INSERT INTO archivos_adjuntos (
+                            solicitud_id, equipo_id, nombre_archivo, url_cloudinary,
+                            tipo_archivo, tamano_bytes, fecha_subida, categoria
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        solicitud_id,
+                        equipo_id_ref,
+                        archivo_info.get('nombre'),
+                        archivo_info.get('url'),
+                        archivo_info.get('nombre', '').split('.')[-1].lower(),
+                        archivo_info.get('tamano'),
+                        ahora_buenos_aires(),
+                        categoria
+                    ))
                 
                 elif tipo_archivo == 'foto_video':
                     categoria = 'falla'
@@ -1735,23 +1743,63 @@ def insertar_solicitud(data, pdf_url=None):
                     else:
                         # Para múltiples equipos en baja/cambio, dejar sin vincular (vinculado solo a solicitud)
                         equipo_id_ref = None
+                    
+                    # Insertar foto/video normalmente
+                    cursor.execute("""
+                        INSERT INTO archivos_adjuntos (
+                            solicitud_id, equipo_id, nombre_archivo, url_cloudinary,
+                            tipo_archivo, tamano_bytes, fecha_subida, categoria
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        solicitud_id,
+                        equipo_id_ref,
+                        archivo_info.get('nombre'),
+                        archivo_info.get('url'),
+                        archivo_info.get('nombre', '').split('.')[-1].lower(),
+                        archivo_info.get('tamano'),
+                        ahora_buenos_aires(),
+                        categoria
+                    ))
                 
-                # Insertar en archivos_adjuntos
-                cursor.execute("""
-                    INSERT INTO archivos_adjuntos (
-                        solicitud_id, equipo_id, nombre_archivo, url_cloudinary,
-                        tipo_archivo, tamano_bytes, fecha_subida, categoria
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    solicitud_id,
-                    equipo_id_ref,
-                    archivo_info.get('nombre'),
-                    archivo_info.get('url'),
-                    archivo_info.get('nombre', '').split('.')[-1].lower(),
-                    archivo_info.get('tamano'),
-                    ahora_buenos_aires(),
-                    categoria
-                ))
+                elif tipo_archivo == 'guia_transporte':
+                    # Categoría 'guia_transporte' (debe estar en el constraint de BD)
+                    categoria = 'guia_transporte'
+                    # Vincular guía a todos los equipos: insertar una fila por cada equipo
+                    for idx, equipo_id in enumerate(equipos_ids):
+                        cursor.execute("""
+                            INSERT INTO archivos_adjuntos (
+                                solicitud_id, equipo_id, nombre_archivo, url_cloudinary,
+                                tipo_archivo, tamano_bytes, fecha_subida, categoria
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            solicitud_id,
+                            equipo_id,
+                            archivo_info.get('nombre'),
+                            archivo_info.get('url'),
+                            archivo_info.get('nombre', '').split('.')[-1].lower(),
+                            archivo_info.get('tamano'),
+                            ahora_buenos_aires(),
+                            categoria
+                        ))
+                
+                else:
+                    # Cualquier otro tipo de archivo también usa 'falla'
+                    categoria = 'falla'
+                    cursor.execute("""
+                        INSERT INTO archivos_adjuntos (
+                            solicitud_id, equipo_id, nombre_archivo, url_cloudinary,
+                            tipo_archivo, tamano_bytes, fecha_subida, categoria
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        solicitud_id,
+                        equipo_id_ref,
+                        archivo_info.get('nombre'),
+                        archivo_info.get('url'),
+                        archivo_info.get('nombre', '').split('.')[-1].lower(),
+                        archivo_info.get('tamano'),
+                        ahora_buenos_aires(),
+                        categoria
+                    ))
         
         conn.commit()
         
@@ -2178,8 +2226,6 @@ def mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, tipo_cliente, 
         - Si No -> mostrar: ST, Asistencia Técnica, Cambio por falla crítica
     """
     
-    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
-    
     # PREGUNTA INICIAL: ¿El equipo es alquilado o propio?
     equipo_propiedad = st.selectbox(
         "¿El equipo es alquilado o propio? *",
@@ -2319,8 +2365,6 @@ def mostrar_flujo_motivo_solicitud_paciente(data, form_key):
         - Si Sí -> Permitir ingresar Número de OV (opcional) -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
         - Si No o No lo sé -> Habilitar motivo: ST, Asistencia Técnica, Cambio por falla crítica
     """
-    
-    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
     
     # PREGUNTA INICIAL - MODIFICADA PARA INCLUIR ALQUILADO
     equipo_propiedad = st.selectbox(
@@ -2672,7 +2716,7 @@ def main():
                 detalles_transporte = st.text_area(
                     "Detalles del transporte externo *",
                     placeholder="Indique nombre de la empresa de transporte, datos de contacto, horarios, etc.",
-                    height=100,
+                    height=150,
                     key=f"detalles_transporte_{st.session_state.form_key}",
                     help="Información sobre el transporte externo"
                 )
@@ -3322,10 +3366,8 @@ def mostrar_flujo_garantia_distribuidor_colaborador(data):
     Información inicial para distribuidor cuando un colaborador hace la solicitud.
     
     NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
-    Esta función solo muestra el header y luego pasa a Datos del Distribuidor
+    Esta función solo muestra datos del distribuidor
     """
-    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
-    
     # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
     # Directamente mostrar datos del distribuidor
     mostrar_datos_distribuidor_simple(data)
@@ -3336,10 +3378,8 @@ def mostrar_flujo_garantia_institucion_colaborador(data):
     Información inicial para institución cuando un colaborador hace la solicitud.
     
     NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
-    Esta función solo muestra el header y luego pasa a Datos de la Institución
+    Esta función solo muestra datos de la institución
     """
-    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
-    
     # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
     # Directamente mostrar datos de la institución
     mostrar_datos_institucion_simple(data)
@@ -3362,11 +3402,9 @@ def mostrar_flujo_garantia_distribuidor_directo(data):
     NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
     Esta función ya no hace nada porque los datos ya fueron capturados antes.
     """
-    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
-    
     # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
     # Los datos del distribuidor ya fueron capturados en mostrar_datos_distribuidor_simple antes
-
+    pass
 
 def mostrar_flujo_garantia_institucion_directo(data):
     """
@@ -3376,10 +3414,9 @@ def mostrar_flujo_garantia_institucion_directo(data):
     NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
     Esta función ya no hace nada porque los datos ya fueron capturados antes.
     """
-    st.markdown('<div class="section-header"><h3>Información del Equipo</h3></div>', unsafe_allow_html=True)
-    
     # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
     # Los datos de la institución ya fueron capturados en mostrar_datos_institucion_simple antes
+    pass
 
 
 def mostrar_seccion_equipo_simple(data):
@@ -3907,11 +3944,11 @@ def mostrar_seccion_equipos(data, contexto="general"):
             col1, col2 = st.columns(2)
             with col1:
                 tipo_equipo = st.selectbox(f"Tipo de Equipo ({i+1}) *", TIPOS_EQUIPO, key=f"tipo_{contexto}_{i}_{form_key}")
-                marca_equipo = st.selectbox(f"Marca de Equipo ({i+1})", MARCAS_EQUIPO, key=f"marca_{contexto}_{i}_{form_key}")
+                marca_equipo = st.selectbox(f"Marca de Equipo ({i+1}) (opcional)", MARCAS_EQUIPO, key=f"marca_{contexto}_{i}_{form_key}")
                 
             with col2:
-                modelo_equipo = st.selectbox(f"Modelo de Equipo ({i+1})", MODELOS_EQUIPO, key=f"modelo_{contexto}_{i}_{form_key}")
-                numero_serie = st.text_input(f"Número de Serie ({i+1})", key=f"serie_{contexto}_{i}_{form_key}")
+                modelo_equipo = st.selectbox(f"Modelo de Equipo ({i+1}) (opcional)", MODELOS_EQUIPO, key=f"modelo_{contexto}_{i}_{form_key}")
+                numero_serie = st.text_input(f"Número de Serie ({i+1}) (opcional)", key=f"serie_{contexto}_{i}_{form_key}")
                 
                 # CAMBIO: Obtener garantía desde Información del Equipo (data)
                 # Ya no se pregunta aquí, se obtiene de la sección anterior
@@ -4163,10 +4200,10 @@ def mostrar_seccion_paciente(data, es_directo=False):
 def procesar_formulario(data):
     """Procesar formulario incluyendo subida de archivos"""
     
-    # Validaciones finales
+    # Validaciones finales - solo tipo es obligatorio
     equipos_validos = [
         eq for eq in data.get('equipos', []) 
-        if eq.get('tipo_equipo') != "Seleccionar tipo..." and eq.get('numero_serie')
+        if eq.get('tipo_equipo') and eq.get('tipo_equipo') != "Seleccionar tipo..."
     ]
     
     data['equipos'] = equipos_validos
