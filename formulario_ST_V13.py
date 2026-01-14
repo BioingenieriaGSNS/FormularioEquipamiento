@@ -33,6 +33,13 @@ from pathlib import Path
 import time
 from sqlalchemy import create_engine
 
+# Importar componente de búsqueda inteligente de clientes
+from componente_busqueda_clientes import (
+    componente_selector_cliente_inteligente,
+    componente_selector_cliente_universal,
+    normalizar_cuit_dni
+)
+
 # Lazy imports - solo cargar cuando se necesiten
 def lazy_import_reportlab():
     """Importar ReportLab solo cuando se genere PDF"""
@@ -294,20 +301,150 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Listas de opciones
-TIPOS_EQUIPO = [
-    "Seleccionar tipo...",
-    "Analizador de gases", "Asistente de Tos", "Aspirador de secreciones", 
-    "Aspirador Manual", "Balón de Contrapulsación", "Bomba a jeringa", 
-    "Bomba de Infusión", "Bomba de Presión Negativa", "BPAP", "Cables Varios",
-    "Calentador Humidificador", "Capnógrafo", "Cardiodesfibrilador", 
-    "Concentrador de Oxígeno", "Concentrador de Oxígeno Portátil", "CPAP",
-    "DEA", "Electrocardiógrafo", "Incubadora", "Luminoterapia", "Marcapasos",
-    "Mesa de Anestesia", "Mochila de Oxígeno", "Módulo de Capnografía",
-    "Módulo PI", "Monitor Multiparamétrico", "Oxímetro de Pulso", "Respirador",
-    "Respirador Portátil", "Tubo de Oxígeno", "Vaporizador de anestesia",
-    "No se/No lo encuentro en la lista"
-]
+# ============================================================================
+# ESTRUCTURA JERÁRQUICA DE EQUIPOS (Tipo → Marca → Modelo)
+# ============================================================================
+EQUIPOS_JERARQUIA = {
+    "Analizador de gases": {
+        "Dräger": ["Scio Four"]
+    },
+    "Asistente de Tos": {
+        "Confort Cough": ["CC20"]
+    },
+    "Aspirador de secreciones": {
+        "Yuwell": ["7E-C (eléctrico)", "7E-G (a batería)", "7B-1 (Manual)"]
+    },
+    "Balón de Contrapulsación": {
+        "Arrow": ["Autocat II", "Autocat II Wave"],
+        "Datascope": ["System 97", "System 97e"]
+    },
+    "Bomba a jeringa": {
+        "Enmind": ["EN-S7", "EN-S7 Smart"],
+        "Maverick": ["SP-50", "SP-50 pro"],
+        "MUX": ["SP-50", "SP-50 pro"],
+        "MedCaptain": ["MP-30"],
+        "Mindray": ["SP5"],
+        "Contec": ["SP950"]
+    },
+    "Bomba de Infusión": {
+        "Enmind": ["EN-V7", "EN-V7 Smart"],
+        "Maverick": ["VP-50", "VP-50 Pro"],
+        "MUX": ["VP-50 Pro"],
+        "MedCaptain": ["MP-60", "Sys-6010"],
+        "Mindray": ["VP5", "SK600 II"],
+        "Contec": ["SP750 I", "SP750 II"]
+    },
+    "Bomba de Presión Negativa": {
+        "Lifotronic": ["NP-100", "NP-600"]
+    },
+    "BPAP": {
+        "Yuwell": ["YH-725", "YH-730"],
+        "Respironics": ["A40", "A40 pro", "Avaps"],
+        "Lowenstein": ["Prisma Vent 40", "Prisma Vent 50"],
+        "Superstar": ["S9530"]
+    },
+    "Cables Varios": {
+        "Varios": ["Cables Varios"]
+    },
+    "Calentador Humidificador": {
+        "MDV": ["Cloud"],
+        "Fisher&Paykel": ["MR810", "MR850"]
+    },
+    "Cardiodesfibrilador": {
+        "EyM": ["C-12B", "C-12R"],
+        "Cardiomax": ["8 Series"]
+    },
+    "Concentrador de Oxígeno": {
+        "Yuwell": ["7F-5 Mini", "9F-5", "7F-10", "7F-5"]
+    },
+    "Concentrador de Oxígeno Portátil": {
+        "Yuwell": ["Spirit 3"],
+        "Lovego": ["LG103"]
+    },
+    "CPAP": {
+        "Yuwell": ["YH-350", "YH-360", "YH-550", "YH-560"]
+    },
+    "DEA": {
+        "Radian": ["QBio HR501"]
+    },
+    "Electrocardiógrafo": {
+        "Cardiotécnica": ["RG-401", "RG-401 Plus", "RG-501", "RG-501 Plus"],
+        "Biocare": ["iE-101", "iE-300"],
+        "Comen": ["CM100", "H3 CM1200"]
+    },
+    "Incubadora": {
+        "Medix": ["Natal Care", "PC305", "TR200"],
+        "Comen": ["B6"],
+        "Bistos": ["BT-500"],
+        "Atom": ["Air Incu i"]
+    },
+    "Luminoterapia": {
+        "Medix": ["Mediled"],
+        "Bistos": ["BT-400"]
+    },
+    "Marcapasos": {
+        "Medtronic": ["5346", "5342", "5388"]
+    },
+    "Mesa de Anestesia": {
+        "Adox": ["Prestige"],
+        "Leistung": ["1625 AC"],
+        "Dräger": ["Fabius", "Fabius Plus", "Fabius Plus XL", "Atlan A300"]
+    },
+    "Mochila de Oxígeno": {
+        "Argas": ["415 L", "680 L"]
+    },
+    "Módulo de Capnografía": {
+        "Contec": ["CO2-M01"]
+    },
+    "Módulo PI": {
+        "Contec": ["CMS8000"]
+    },
+    "Monitor Multiparamétrico": {
+        "Contec": ["CMS8000"],
+        "Comen": ["Star 8000"],
+        "Dräger": ["Vista 120", "Vista 120s"],
+        "Edan": ["IM8B", "iM70", "M3"],
+        "Leex": ["IM8 B", "iM70"],
+        "Philips": ["Goldway"]
+    },
+    "Oxímetro de Pulso": {
+        "Covidien": ["Libra"],
+        "Massimo": ["Radical 7"]
+    },
+    "Respirador Portátil": {
+        "Covidien": ["Puritan Bennett 560"]
+    },
+    "Respirador": {
+        "Cegens": ["HT109"]
+    },
+    "Tubo de Oxígeno": {
+        "Argas": ["6 m3", "8 m3"]
+    },
+    "Vaporizador de anestesia": {
+        "Dräger": ["Vapor2000", "Vapor19.1"]
+    }
+}
 
+# Generar listas para compatibilidad con código existente
+TIPOS_EQUIPO = ["Seleccionar tipo..."] + sorted(list(EQUIPOS_JERARQUIA.keys())) + ["No lo encuentro"]
+
+def obtener_marcas_por_tipo(tipo_equipo):
+    """Obtiene las marcas disponibles para un tipo de equipo"""
+    if tipo_equipo and tipo_equipo != "Seleccionar tipo..." and tipo_equipo != "No lo encuentro":
+        if tipo_equipo in EQUIPOS_JERARQUIA:
+            return ["Seleccionar marca..."] + sorted(list(EQUIPOS_JERARQUIA[tipo_equipo].keys())) + ["No lo encuentro"]
+    return ["Seleccionar marca...", "No lo encuentro"]
+
+def obtener_modelos_por_marca(tipo_equipo, marca):
+    """Obtiene los modelos disponibles para un tipo de equipo y marca"""
+    if (tipo_equipo and marca and 
+        tipo_equipo != "Seleccionar tipo..." and tipo_equipo != "No lo encuentro" and
+        marca != "Seleccionar marca..." and marca != "No lo encuentro"):
+        if tipo_equipo in EQUIPOS_JERARQUIA and marca in EQUIPOS_JERARQUIA[tipo_equipo]:
+            return ["Seleccionar modelo..."] + EQUIPOS_JERARQUIA[tipo_equipo][marca] + ["No lo encuentro"]
+    return ["Seleccionar modelo...", "No lo encuentro"]
+
+# Mantener listas antiguas para retrocompatibilidad (ya no se usan en el form)
 MARCAS_EQUIPO = [
     "Seleccionar marca...",
     "Arrow", "Biocare", "Bistos", "Cardiotécnica", "Cegens", "Comen",
@@ -315,7 +452,7 @@ MARCAS_EQUIPO = [
     "Edan", "Enmind", "Fisher&Paykel", "Leex", "Lifotronic", "Long Fian",
     "Lovego", "Marbel", "Massimo", "Maverick", "MDV", "Medix", "Medtronic",
     "Mindray", "MUX", "Nellcor", "Neumovent", "Philips", "Yuwell",
-    "No se / No lo encuentro en esta lista"
+    "No lo encuentro"
 ]
 
 MODELOS_EQUIPO = [
@@ -329,7 +466,7 @@ MODELOS_EQUIPO = [
     "RG-401 Plus", "RG-501", "RG-501 Plus", "Scio Four", "SP-50", "SP-50 Pro",
     "Spirit 3", "Star 8000", "System 97", "System 97e", "Trilogy", "Vapor 2000",
     "Vista 120", "VP-50", "VP-50 Pro", "YH-350", "YH-360", "YH-550", "YH-560",
-    "YH-725", "YH-730", "5342", "5346", "No se / No lo encuentro en esta lista"
+    "YH-725", "YH-730", "5342", "5346", "No lo encuentro"
 ]
 
 COMERCIALES = ["Seleccionar comercial...", "Ariel", "Clara", "Diana", "Francesca", "Isabel", "Lucas", "Miguel"]
@@ -703,6 +840,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
                 ["CUIT:", data.get('cuit', 'N/A')],
                 ["Nombre contacto:", data.get('contacto_nombre', 'N/A')],
                 ["Teléfono:", data.get('contacto_telefono', 'N/A')],
+                ["Dirección:", data.get('direccion', 'N/A')],
                 ["Comercial a cargo:", data.get('comercial_syemed', 'N/A')],
                 ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
                 ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
@@ -713,7 +851,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             info_equipo_corresponde.extend([
                 ["Nombre y Apellido:", data.get('nombre_apellido_paciente', 'N/A')],
                 ["Teléfono:", data.get('telefono_paciente', 'N/A')],
-                ["Dirección:", data.get('direccion_paciente', 'N/A')],
+                ["Dirección:", data.get('direccion', 'N/A')],
                 ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
                 ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
                 ["Diagnóstico del Paciente:", data.get('diagnostico_paciente', 'N/A')],
@@ -741,6 +879,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             ["CUIT:", data.get('cuit', 'N/A')],
             ["Nombre contacto:", data.get('contacto_nombre', 'N/A')],
             ["Teléfono:", data.get('contacto_telefono', 'N/A')],
+            ["Dirección:", data.get('direccion', 'N/A')],
             ["Comercial a cargo:", data.get('comercial_syemed', 'N/A')],
             ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
             ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
@@ -768,6 +907,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
             ["CUIT:", data.get('cuit', 'N/A')],
             ["Nombre contacto:", data.get('contacto_nombre', 'N/A')],
             ["Teléfono:", data.get('contacto_telefono', 'N/A')],
+            ["Dirección:", data.get('direccion', 'N/A')],
             ["Comercial a cargo:", data.get('comercial_syemed', 'N/A')],
             ["¿Lo contactamos?:", data.get('contacto_tecnico', 'N/A')],
             ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
@@ -792,6 +932,7 @@ def generar_pdf_solicitud(data, solicitud_id, equipos_osts=None):
         info_general.extend([
             ["Nombre y Apellido:", data.get('nombre_apellido_paciente', 'N/A')],
             ["Teléfono:", data.get('telefono_paciente', 'N/A')],
+            ["Dirección:", data.get('direccion', 'N/A')],
             ["Motivo solicitud:", formatear_motivo_solicitud_display(data.get('motivo_solicitud', 'N/A'))],
         ])
         
@@ -1437,11 +1578,13 @@ def insertar_solicitud(data, pdf_url=None):
                         nombre_apellido_paciente, telefono_paciente, equipo_origen,
                         quien_entrego, fecha_entrega,
                         motivo_solicitud, detalle_fallo, comentarios_caso,
-                        categoria, estado, pdf_url, guia_transporte_url
+                        categoria, estado, pdf_url, guia_transporte_url,
+                        obra_social, fecha_entrega_equipo, numero_ov, direccion
                     ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s
                 )
                 RETURNING id
             """, (
@@ -1472,7 +1615,11 @@ def insertar_solicitud(data, pdf_url=None):
                 categoria,
                 'Pendiente',
                 pdf_url,
-                data.get('guia_transporte_url', None)
+                data.get('guia_transporte_url', None),
+                data.get('obra_social', None),
+                data.get('fecha_entrega_equipo', None),
+                data.get('numero_ov', None),
+                data.get('direccion', None)
             ))
         else:
             # Versión sin guia_transporte_url (retrocompatible)
@@ -1486,11 +1633,13 @@ def insertar_solicitud(data, pdf_url=None):
                         nombre_apellido_paciente, telefono_paciente, equipo_origen,
                         quien_entrego, fecha_entrega,
                         motivo_solicitud, detalle_fallo, comentarios_caso,
-                        categoria, estado, pdf_url
+                        categoria, estado, pdf_url,
+                        obra_social, fecha_entrega_equipo, numero_ov, direccion
                     ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s
                 )
                 RETURNING id
             """, (
@@ -1520,7 +1669,11 @@ def insertar_solicitud(data, pdf_url=None):
                 comentarios_caso,
                 categoria,
                 'Pendiente',
-                pdf_url
+                pdf_url,
+                data.get('obra_social', None),
+                data.get('fecha_entrega_equipo', None),
+                data.get('numero_ov', None),
+                data.get('direccion', None)
             ))
         
         solicitud_id = cursor.fetchone()[0]
@@ -2747,72 +2900,47 @@ def main():
                     mostrar_seccion_equipos(data, contexto="baja_demo")
                     
             elif tipo_solicitud in ["Baja Alquiler", "Cambio Alquiler"]:
-                # Para bajas y cambios de alquiler, seleccionar usuario
-                equipo_corresponde_a = st.selectbox(
-                    "El equipo corresponde a: *",
-                    ["", "Paciente/Particular", "Distribuidor", "Institución"],
-                    key=f"usuario_{tipo_solicitud.replace(' ', '_')}_{st.session_state.form_key}"
-                )
+                # Normalizar motivo
+                if tipo_solicitud == "Baja Alquiler":
+                    data['motivo_solicitud'] = "Baja de Alquiler"
+                    data['equipo_propiedad'] = "Alquilado"
+                    # Mostrar motivo de baja
+                    mostrar_seccion_baja_alquiler(data)
+                elif tipo_solicitud == "Cambio Alquiler":
+                    data['motivo_solicitud'] = "Cambio de Alquiler"
+                    data['equipo_propiedad'] = "Alquilado"
+                    # Mostrar motivo de cambio
+                    mostrar_seccion_cambio_alquiler(data)
                 
-                if equipo_corresponde_a:
-                    data['equipo_corresponde_a'] = equipo_corresponde_a
-                    
-                    # Normalizar motivo
-                    if tipo_solicitud == "Baja Alquiler":
-                        data['motivo_solicitud'] = "Baja de Alquiler"
-                        # 1. Primero: Motivo de Baja (como sección)
-                        mostrar_seccion_baja_alquiler(data)
-                        
-                    elif tipo_solicitud == "Cambio Alquiler":
-                        data['motivo_solicitud'] = "Cambio de Alquiler"
-                        # 1. Primero: Motivo de Cambio (como sección)
-                        mostrar_seccion_cambio_alquiler(data)
-                    
-                    # 2. Segundo: Datos del usuario
-                    if equipo_corresponde_a == "Paciente/Particular":
-                        mostrar_datos_paciente_simple(data)
-                    elif equipo_corresponde_a == "Distribuidor":
-                        mostrar_datos_distribuidor_simple(data)
-                    elif equipo_corresponde_a == "Institución":
-                        mostrar_datos_institucion_simple(data)
-                    
-                    # 3. Tercero: Equipos (UNA SOLA VEZ)
+                # Búsqueda UNIVERSAL de cliente (sin preguntar tipo)
+                mostrar_datos_cliente_universal(data)
+                
+                # Si hay cliente seleccionado, mostrar equipos
+                if data.get('cliente_id'):
                     mostrar_seccion_equipos(data, contexto=tipo_solicitud.lower().replace(" ", "_"))
                         
             elif tipo_solicitud in ["Servicio Técnico", "Atención Técnica", "Cambio por Falla Crítica"]:
-                # Para servicios técnicos, atención técnica y cambios por falla
-                equipo_corresponde_a = st.selectbox(
-                    "El equipo corresponde a: *",
-                    ["", "Paciente/Particular", "Distribuidor", "Institución"],
-                    key=f"usuario_{tipo_solicitud.replace(' ', '_')}_{st.session_state.form_key}"
-                )
+                # Normalizar motivo según tipo de solicitud
+                if tipo_solicitud == "Servicio Técnico":
+                    data['motivo_solicitud'] = "Servicio Técnico (reparaciones de equipos en general)"
+                elif tipo_solicitud == "Atención Técnica":
+                    data['motivo_solicitud'] = "Servicio Post Venta (para alguno de nuestros productos adquiridos)"
+                elif tipo_solicitud == "Cambio por Falla Crítica":
+                    data['motivo_solicitud'] = "Cambio por falla de funcionamiento crítica"
                 
-                if equipo_corresponde_a:
-                    data['equipo_corresponde_a'] = equipo_corresponde_a
+                # Búsqueda UNIVERSAL de cliente (sin preguntar tipo)
+                mostrar_datos_cliente_universal(data)
+                
+                # Si hay cliente seleccionado, continuar con flujo de garantía
+                if data.get('cliente_id'):
+                    tipo_detectado = data.get('equipo_corresponde_a', '')
                     
-                    # Normalizar motivo según tipo de solicitud
-                    if tipo_solicitud == "Servicio Técnico":
-                        motivo_base = "Servicio Técnico (reparaciones de equipos en general)"
-                    elif tipo_solicitud == "Atención Técnica":
-                        motivo_base = "Servicio Post Venta (para alguno de nuestros productos adquiridos)"
-                    elif tipo_solicitud == "Cambio por Falla Crítica":
-                        motivo_base = "Cambio por falla de funcionamiento crítica"
-                    
-                    data['motivo_solicitud'] = motivo_base
-                    
-                    # Flujo según usuario
-                    if equipo_corresponde_a == "Paciente/Particular":
-                        # Primero datos del paciente
-                        mostrar_datos_paciente_simple(data)
-                        # Luego flujo de propiedad/garantía
+                    # Flujo de garantía según tipo detectado
+                    if tipo_detectado == "Paciente":
                         mostrar_flujo_garantia_paciente_colaborador(data)
-                        
-                    elif equipo_corresponde_a == "Distribuidor":
-                        # Flujo: Garantía -> Datos Distribuidor -> Equipo
+                    elif tipo_detectado == "Distribuidor":
                         mostrar_flujo_garantia_distribuidor_colaborador(data)
-                        
-                    elif equipo_corresponde_a == "Institución":
-                        # Flujo: Garantía -> Datos Institución -> Equipo
+                    elif tipo_detectado == "Institución":
                         mostrar_flujo_garantia_institucion_colaborador(data)
 
         
@@ -3224,116 +3352,334 @@ def mostrar_resumen_y_descarga():
 # NUEVAS FUNCIONES PARA V14 - ESTRUCTURA INVERTIDA
 # ===========================================================================
 
-def mostrar_datos_paciente_simple(data):
+def mostrar_datos_cliente_universal(data):
     """
-    Muestra solo los campos de datos del paciente sin preguntar por motivo ni propiedad.
-    Se usa cuando ya se seleccionó el tipo de solicitud previamente.
+    Muestra buscador UNIVERSAL de clientes (busca en todos los tipos).
+    No pregunta tipo previamente, solo lo muestra después de seleccionar.
+    Si crea uno nuevo, ahí sí pregunta qué tipo es.
+    
+    Versión V15 para simplificar UX.
     """
-    st.markdown('<div class="section-header"><h2>Datos del Paciente</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h2>Datos del Cliente</h2></div>', unsafe_allow_html=True)
+    
+    # Obtener comercial del contexto si es colaborador
+    comercial = None
+    if data.get('quien_completa') == "Colaborador de Syemed":
+        comercial = data.get('solicitante')
     
     form_key = st.session_state.form_key
     
-    col1, col2 = st.columns(2)
-    with col1:
-        nombre_apellido = st.text_input("Nombre y Apellido *", key=f"pac_nombre_{form_key}")
-        dni_input = st.text_input("DNI * (solo números)", placeholder="12345678", key=f"pac_dni_{form_key}", max_chars=8)
-        dni = validar_solo_numeros(dni_input)
-        if dni_input and not dni_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el DNI")
+    # Usar componente de búsqueda UNIVERSAL (sin filtro de tipo)
+    cliente_seleccionado = componente_selector_cliente_universal(
+        comercial=comercial,
+        key_prefix=f"cliente_universal_{form_key}"
+    )
     
-    with col2:
-        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"pac_contacto_tec_{form_key}")
+    if cliente_seleccionado:
+        # Guardar el tipo detectado
+        tipo_detectado = cliente_seleccionado.get('tipo_cliente', 'Sin clasificar')
+        data['equipo_corresponde_a'] = tipo_detectado
+        
+        # Autocargar datos según el tipo detectado
+        data.update({
+            'cliente_id': cliente_seleccionado['id'],
+        })
+        
+        # Cargar datos específicos según tipo
+        if tipo_detectado == "Paciente":
+            data.update({
+                'nombre_apellido_paciente': cliente_seleccionado.get('nombre_apellido', ''),
+                'dni_paciente': cliente_seleccionado.get('cuit_dni', ''),
+                'telefono_paciente': cliente_seleccionado.get('telefono', ''),
+                'direccion': cliente_seleccionado.get('direccion', '')
+            })
+        else:  # Distribuidor o Institución
+            data.update({
+                'nombre_fantasia': cliente_seleccionado.get('nombre_fantasia', ''),
+                'razon_social': cliente_seleccionado.get('razon_social', ''),
+                'cuit': cliente_seleccionado.get('cuit_dni', ''),
+                'contacto_telefono': cliente_seleccionado.get('telefono', ''),
+                'direccion': cliente_seleccionado.get('direccion', '')
+            })
+        
+        # Mostrar resumen de datos cargados
+        col1, col2 = st.columns(2)
+        with col1:
+            st.success(f"✅ Cliente: **{cliente_seleccionado.get('nombre_display', '')}**")
+        with col2:
+            st.info(f"📋 Tipo: {tipo_detectado} | CUIT/DNI: {cliente_seleccionado.get('cuit_dni', '')}")
+        
+        # Campo adicional: contacto técnico (común para todos)
+        contacto_tecnico = st.selectbox(
+            "¿Quiere que lo contactemos desde el área técnica? *",
+            ["", "Sí", "No"],
+            key=f"cliente_contacto_tec_{form_key}"
+        )
+        
         contacto_telefono = ""
+        contacto_nombre = ""
+        
         if contacto_tecnico == "Sí":
-            telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"pac_tel_{form_key}", max_chars=15)
-            contacto_telefono = validar_solo_numeros(telefono_input)
-            if telefono_input and not telefono_input.isdigit():
+            # Preguntar teléfono para todos los tipos
+            contacto_telefono = st.text_input(
+                "Teléfono de contacto para Servicio Técnico * (solo números)",
+                placeholder="1123730278",
+                key=f"cliente_contacto_tel_{form_key}",
+                max_chars=15,
+                help="Teléfono donde el área técnica puede contactar al cliente"
+            )
+            
+            # Validar que solo sean números
+            if contacto_telefono and not contacto_telefono.isdigit():
                 st.warning("⚠️ Solo se permiten números en el teléfono")
+            
+            # Para distribuidores e instituciones, también preguntar nombre de contacto
+            if tipo_detectado in ["Distribuidor", "Institución"]:
+                contacto_nombre = st.text_input(
+                    "Nombre de contacto para Servicio Técnico *",
+                    key=f"cliente_contacto_nombre_{form_key}",
+                    help="Nombre de la persona de contacto en la empresa/institución"
+                )
+        
+        # Guardar teléfono según el tipo
+        if tipo_detectado == "Paciente":
+            data['telefono_paciente'] = contacto_telefono if contacto_tecnico == "Sí" else data.get('telefono_paciente', '')
+        else:
+            data['contacto_telefono'] = contacto_telefono if contacto_tecnico == "Sí" else data.get('contacto_telefono', '')
+        
+        data.update({
+            'contacto_tecnico': contacto_tecnico,
+            'contacto_nombre': contacto_nombre
+        })
+
+
+def mostrar_datos_paciente_simple(data):
+    """
+    Muestra selector inteligente de pacientes con búsqueda y alta rápida.
+    Versión V14 con integración a tabla clientes.
+    """
+    st.markdown('<div class="section-header"><h2>Datos del Paciente</h2></div>', unsafe_allow_html=True)
     
-    data.update({
-        'nombre_apellido_paciente': nombre_apellido,
-        'dni_paciente': dni,
-        'telefono_paciente': contacto_telefono,
-        'contacto_tecnico': contacto_tecnico
-    })
+    # Obtener comercial del contexto si es colaborador
+    comercial = None
+    if data.get('quien_completa') == "Colaborador de Syemed":
+        comercial = data.get('solicitante')
+    
+    form_key = st.session_state.form_key
+    
+    # Usar componente de búsqueda inteligente
+    cliente_seleccionado = componente_selector_cliente_inteligente(
+        tipo_cliente="Paciente",
+        comercial=comercial,
+        key_prefix=f"paciente_{form_key}",
+        mostrar_filtro_tipo=False
+    )
+    
+    if cliente_seleccionado:
+        # Autocargar datos del cliente seleccionado
+        data.update({
+            'cliente_id': cliente_seleccionado['id'],
+            'nombre_apellido_paciente': cliente_seleccionado.get('nombre_apellido', ''),
+            'dni_paciente': cliente_seleccionado.get('cuit_dni', ''),
+            'telefono_paciente': cliente_seleccionado.get('telefono', ''),
+            'direccion': cliente_seleccionado.get('direccion', '')
+        })
+        
+        # Mostrar resumen de datos cargados
+        col1, col2 = st.columns(2)
+        with col1:
+            st.success(f"✅ Paciente: **{cliente_seleccionado.get('nombre_apellido', '')}**")
+        with col2:
+            st.info(f"📋 DNI: {cliente_seleccionado.get('cuit_dni', '')}")
+        
+        # Campo adicional: contacto técnico
+        contacto_tecnico = st.selectbox(
+            "¿Quiere que lo contactemos desde el área técnica? *",
+            ["", "Sí", "No"],
+            key=f"pac_contacto_tec_{form_key}"
+        )
+        
+        # Si quiere contacto, pedir teléfono
+        if contacto_tecnico == "Sí":
+            telefono_contacto = st.text_input(
+                "Teléfono de contacto para Servicio Técnico * (solo números)",
+                placeholder="1123730278",
+                key=f"pac_tel_{form_key}",
+                max_chars=15,
+                help="Teléfono donde el área técnica puede contactar al paciente"
+            )
+            
+            # Validar que solo sean números
+            if telefono_contacto and not telefono_contacto.isdigit():
+                st.warning("⚠️ Solo se permiten números en el teléfono")
+            
+            # Actualizar teléfono si se proporcionó
+            if telefono_contacto:
+                data['telefono_paciente'] = telefono_contacto
+        
+        data['contacto_tecnico'] = contacto_tecnico
 
 
 def mostrar_datos_distribuidor_simple(data):
     """
-    Muestra solo los campos de datos del distribuidor sin preguntar por motivo ni propiedad.
-    Se usa cuando ya se seleccionó el tipo de solicitud previamente.
+    Muestra selector inteligente de distribuidores con búsqueda y alta rápida.
+    Versión V14 con integración a tabla clientes.
     """
     st.markdown('<div class="section-header"><h2>Datos del Distribuidor</h2></div>', unsafe_allow_html=True)
     
+    # Obtener comercial del contexto si es colaborador
+    comercial = None
+    if data.get('quien_completa') == "Colaborador de Syemed":
+        comercial = data.get('solicitante')
+    
     form_key = st.session_state.form_key
     
-    col1, col2 = st.columns(2)
-    with col1:
-        nombre_fantasia = st.text_input("Nombre de Fantasía *", placeholder="Ejemplo: Syemed", key=f"dist_nombre_{form_key}")
-        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"dist_razon_{form_key}")
-        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"dist_cuit_{form_key}", max_chars=11)
-        cuit = validar_solo_numeros(cuit_input)
-        if cuit_input and not cuit_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el CUIT")
+    # Usar componente de búsqueda inteligente
+    cliente_seleccionado = componente_selector_cliente_inteligente(
+        tipo_cliente="Distribuidor",
+        comercial=comercial,
+        key_prefix=f"distribuidor_{form_key}",
+        mostrar_filtro_tipo=False
+    )
     
-    with col2:
-        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"dist_contacto_tec_{form_key}")
+    if cliente_seleccionado:
+        # Autocargar datos del cliente seleccionado
+        data.update({
+            'cliente_id': cliente_seleccionado['id'],
+            'nombre_fantasia': cliente_seleccionado.get('nombre_fantasia', ''),
+            'razon_social': cliente_seleccionado.get('razon_social', ''),
+            'cuit': cliente_seleccionado.get('cuit_dni', ''),
+            'contacto_telefono': cliente_seleccionado.get('telefono', ''),
+            'direccion': cliente_seleccionado.get('direccion', '')
+        })
+        
+        # Mostrar resumen de datos cargados
+        col1, col2 = st.columns(2)
+        with col1:
+            st.success(f"✅ Distribuidor: **{cliente_seleccionado.get('nombre_fantasia', '')}**")
+        with col2:
+            st.info(f"📋 CUIT: {cliente_seleccionado.get('cuit_dni', '')}")
+        
+        # Campos adicionales
+        contacto_tecnico = st.selectbox(
+            "¿Quiere que lo contactemos desde el área técnica? *",
+            ["", "Sí", "No"],
+            key=f"dist_contacto_tec_{form_key}"
+        )
+        
         contacto_telefono = ""
         contacto_nombre = ""
+        
         if contacto_tecnico == "Sí":
-            telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"dist_tel_{form_key}", max_chars=15)
-            contacto_telefono = validar_solo_numeros(telefono_input)
-            if telefono_input and not telefono_input.isdigit():
+            # Pedir teléfono de contacto
+            contacto_telefono = st.text_input(
+                "Teléfono de contacto para Servicio Técnico * (solo números)",
+                placeholder="1123730278",
+                key=f"dist_contacto_tel_{form_key}",
+                max_chars=15,
+                help="Teléfono donde el área técnica puede contactar"
+            )
+            
+            # Validar que solo sean números
+            if contacto_telefono and not contacto_telefono.isdigit():
                 st.warning("⚠️ Solo se permiten números en el teléfono")
-            contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"dist_contacto_{form_key}")
-    
-    data.update({
-        'nombre_fantasia': nombre_fantasia,
-        'razon_social': razon_social,
-        'cuit': cuit,
-        'contacto_nombre': contacto_nombre,
-        'contacto_telefono': contacto_telefono,
-        'contacto_tecnico': contacto_tecnico
-    })
+            
+            # Pedir nombre de contacto
+            contacto_nombre = st.text_input(
+                "Nombre de contacto para Servicio Técnico *",
+                key=f"dist_contacto_nombre_{form_key}",
+                help="Nombre de la persona de contacto en la empresa"
+            )
+            
+            # Actualizar teléfono si se proporcionó
+            if contacto_telefono:
+                data['contacto_telefono'] = contacto_telefono
+        
+        data.update({
+            'contacto_tecnico': contacto_tecnico,
+            'contacto_nombre': contacto_nombre
+        })
 
 
 def mostrar_datos_institucion_simple(data):
     """
-    Muestra solo los campos de datos de la institución sin preguntar por motivo ni propiedad.
-    Se usa cuando ya se seleccionó el tipo de solicitud previamente.
+    Muestra selector inteligente de instituciones con búsqueda y alta rápida.
+    Versión V14 con integración a tabla clientes.
     """
     st.markdown('<div class="section-header"><h2>Datos de la Institución</h2></div>', unsafe_allow_html=True)
     
+    # Obtener comercial del contexto si es colaborador
+    comercial = None
+    if data.get('quien_completa') == "Colaborador de Syemed":
+        comercial = data.get('solicitante')
+    
     form_key = st.session_state.form_key
     
-    col1, col2 = st.columns(2)
-    with col1:
-        nombre_fantasia = st.text_input("Nombre del Hospital/Clínica/Sanatorio *", placeholder="Ejemplo: Hospital Central", key=f"inst_nombre_{form_key}")
-        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Hospital Central SA", key=f"inst_razon_{form_key}")
-        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"inst_cuit_{form_key}", max_chars=11)
-        cuit = validar_solo_numeros(cuit_input)
-        if cuit_input and not cuit_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el CUIT")
+    # Usar componente de búsqueda inteligente
+    cliente_seleccionado = componente_selector_cliente_inteligente(
+        tipo_cliente="Institución",
+        comercial=comercial,
+        key_prefix=f"institucion_{form_key}",
+        mostrar_filtro_tipo=False
+    )
     
-    with col2:
-        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"inst_contacto_tec_{form_key}")
+    if cliente_seleccionado:
+        # Autocargar datos del cliente seleccionado
+        data.update({
+            'cliente_id': cliente_seleccionado['id'],
+            'nombre_fantasia': cliente_seleccionado.get('nombre_fantasia', ''),
+            'razon_social': cliente_seleccionado.get('razon_social', ''),
+            'cuit': cliente_seleccionado.get('cuit_dni', ''),
+            'contacto_telefono': cliente_seleccionado.get('telefono', ''),
+            'direccion': cliente_seleccionado.get('direccion', '')
+        })
+        
+        # Mostrar resumen de datos cargados
+        col1, col2 = st.columns(2)
+        with col1:
+            st.success(f"✅ Institución: **{cliente_seleccionado.get('nombre_fantasia', '')}**")
+        with col2:
+            st.info(f"📋 CUIT: {cliente_seleccionado.get('cuit_dni', '')}")
+        
+        # Campos adicionales
+        contacto_tecnico = st.selectbox(
+            "¿Quiere que lo contactemos desde el área técnica? *",
+            ["", "Sí", "No"],
+            key=f"inst_contacto_tec_{form_key}"
+        )
+        
         contacto_telefono = ""
         contacto_nombre = ""
+        
         if contacto_tecnico == "Sí":
-            telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"inst_tel_{form_key}", max_chars=15)
-            contacto_telefono = validar_solo_numeros(telefono_input)
-            if telefono_input and not telefono_input.isdigit():
+            # Pedir teléfono de contacto
+            contacto_telefono = st.text_input(
+                "Teléfono de contacto para Servicio Técnico * (solo números)",
+                placeholder="1123730278",
+                key=f"inst_contacto_tel_{form_key}",
+                max_chars=15,
+                help="Teléfono donde el área técnica puede contactar"
+            )
+            
+            # Validar que solo sean números
+            if contacto_telefono and not contacto_telefono.isdigit():
                 st.warning("⚠️ Solo se permiten números en el teléfono")
-            contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"inst_contacto_{form_key}")
-    
-    data.update({
-        'nombre_fantasia': nombre_fantasia,
-        'razon_social': razon_social,
-        'cuit': cuit,
-        'contacto_nombre': contacto_nombre,
-        'contacto_telefono': contacto_telefono,
-        'contacto_tecnico': contacto_tecnico
-    })
+            
+            # Pedir nombre de contacto
+            contacto_nombre = st.text_input(
+                "Nombre de contacto para Servicio Técnico *",
+                key=f"inst_contacto_nombre_{form_key}",
+                help="Nombre de la persona de contacto en la institución"
+            )
+            
+            # Actualizar teléfono si se proporcionó
+            if contacto_telefono:
+                data['contacto_telefono'] = contacto_telefono
+        
+        data.update({
+            'contacto_tecnico': contacto_tecnico,
+            'contacto_nombre': contacto_nombre
+        })
 
 
 def mostrar_flujo_garantia_paciente_colaborador(data):
@@ -3348,26 +3694,24 @@ def mostrar_flujo_garantia_paciente_colaborador(data):
 
 def mostrar_flujo_garantia_distribuidor_colaborador(data):
     """
-    Información inicial para distribuidor cuando un colaborador hace la solicitud.
-    
-    NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
-    Esta función solo muestra datos del distribuidor
+    Esta función ya no es necesaria con la búsqueda universal.
+    Los datos del distribuidor ya fueron capturados en mostrar_datos_cliente_universal.
+    La pregunta de garantía y número OV están en mostrar_seccion_equipo_simple.
+    Se mantiene la función vacía por compatibilidad con el flujo.
     """
-    # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
-    # Directamente mostrar datos del distribuidor
-    mostrar_datos_distribuidor_simple(data)
+    # Ya no se pregunta nada aquí, todo está en Datos del Cliente y Datos del Equipo
+    pass
 
 
 def mostrar_flujo_garantia_institucion_colaborador(data):
     """
-    Información inicial para institución cuando un colaborador hace la solicitud.
-    
-    NOTA: La pregunta de garantía y número OV ahora están en mostrar_seccion_equipo_simple
-    Esta función solo muestra datos de la institución
+    Esta función ya no es necesaria con la búsqueda universal.
+    Los datos de la institución ya fueron capturados en mostrar_datos_cliente_universal.
+    La pregunta de garantía y número OV están en mostrar_seccion_equipo_simple.
+    Se mantiene la función vacía por compatibilidad con el flujo.
     """
-    # Ya no se pregunta garantía aquí, se pregunta en Datos del Equipo
-    # Directamente mostrar datos de la institución
-    mostrar_datos_institucion_simple(data)
+    # Ya no se pregunta nada aquí, todo está en Datos del Cliente y Datos del Equipo
+    pass
 
 def mostrar_flujo_garantia_paciente_directo(data):
     """
@@ -3446,14 +3790,30 @@ def mostrar_seccion_equipo_simple(data):
         
         st.markdown("---")
     
-    # Datos básicos del equipo
+    # Datos básicos del equipo - CON FILTROS DINÁMICOS
     col1, col2 = st.columns(2)
     with col1:
         tipo_equipo = st.selectbox("Tipo de Equipo *", TIPOS_EQUIPO, key=f"eq_tipo_{form_key}")
-        marca_equipo = st.selectbox("Marca de Equipo", MARCAS_EQUIPO, key=f"eq_marca_{form_key}")  # ✅ Opcional
+        
+        # Marca dinámica según tipo seleccionado
+        marcas_disponibles = obtener_marcas_por_tipo(tipo_equipo)
+        marca_equipo = st.selectbox(
+            "Marca de Equipo", 
+            marcas_disponibles, 
+            key=f"eq_marca_{form_key}",
+            help="Las marcas se filtran según el tipo de equipo seleccionado"
+        )  # ✅ Opcional
     
     with col2:
-        modelo_equipo = st.selectbox("Modelo de Equipo", MODELOS_EQUIPO, key=f"eq_modelo_{form_key}")  # ✅ Opcional
+        # Modelo dinámico según tipo y marca seleccionados
+        modelos_disponibles = obtener_modelos_por_marca(tipo_equipo, marca_equipo)
+        modelo_equipo = st.selectbox(
+            "Modelo de Equipo", 
+            modelos_disponibles, 
+            key=f"eq_modelo_{form_key}",
+            help="Los modelos se filtran según el tipo y marca seleccionados"
+        )  # ✅ Opcional
+        
         numero_serie = st.text_input("Número de Serie", key=f"eq_serie_{form_key}")  # ✅ Opcional
     
     # Pregunta de garantía - SOLO si el equipo es PROPIO o no aplica la pregunta de propiedad
@@ -3487,19 +3847,13 @@ def mostrar_seccion_equipo_simple(data):
                 placeholder="Ingrese el número de orden de venta",
                 key=f"eq_ov_{form_key}"
             )
-        elif en_garantia == "No lo sé":
-            comentario_garantia = st.text_area(
-                "Comentarios sobre la garantía (opcional)",
-                placeholder="Agregue información adicional que pueda ayudar a determinar el estado de garantía",
-                key=f"eq_comentario_garantia_{form_key}",
-                height=100
-            )
+        # Eliminado: bloque de comentarios para "No lo sé"
     
     # Actualizar data con información de garantía y propiedad
     data.update({
         'equipo_propiedad': propiedad_equipo,
         'obra_social': obra_social,
-        'fecha_entrega': fecha_entrega,
+        'fecha_entrega_equipo': fecha_entrega,  # Cambiar nombre para BD
         'en_garantia': en_garantia,
         'numero_ov': numero_ov,
         'comentario_garantia': comentario_garantia
@@ -3530,225 +3884,13 @@ def mostrar_seccion_equipo_simple(data):
         'en_garantia': en_garantia,
         'numero_ov': numero_ov,
         'fecha_compra': data.get('fecha_compra', None),
-        'fotos_equipo': fotos_equipo if fotos_equipo else []
+        'fotos_fallas': fotos_equipo if fotos_equipo else []  # Cambiar nombre a fotos_fallas
     }]
 
 # ===========================================================================
 # FIN DE NUEVAS FUNCIONES V14
 # ===========================================================================
 
-def mostrar_seccion_distribuidor(data, es_directo=False):
-    """VERSIÓN NUEVA - Reemplaza la función existente"""
-    st.markdown(f'<div class="section-header"><h2>Distribuidor</h2></div>', unsafe_allow_html=True)
-    
-    form_key = st.session_state.form_key
-    
-    # Inicializar variables
-    contacto_nombre = ""
-    contacto_telefono = ""
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        nombre_fantasia = st.text_input("Nombre de Fantasía *", placeholder="Ejemplo: Syemed", key=f"d_nombre_{form_key}")
-        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"d_razon_{form_key}")
-        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"d_cuit_{form_key}", max_chars=11)
-        cuit = validar_solo_numeros(cuit_input)
-        if cuit_input and not cuit_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el CUIT")
-        comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"d_comercial_{form_key}")
-    with col2:
-        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"d_contacto_tec_{form_key}")
-        if contacto_tecnico == "Sí":
-            telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
-            contacto_telefono = validar_solo_numeros(telefono_input)
-            if telefono_input and not telefono_input.isdigit():
-                st.warning("⚠️ Solo se permiten números en el teléfono")
-            contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
-
-        
-        
-    
-    data.update({
-        'nombre_fantasia': nombre_fantasia,
-        'razon_social': razon_social,
-        'cuit': cuit,
-        'contacto_nombre': contacto_nombre,
-        'contacto_telefono': contacto_telefono,
-        'comercial_syemed': comercial_syemed,
-        'contacto_tecnico': contacto_tecnico
-    })
-    
-    # NUEVO FLUJO CONDICIONAL
-    flujo_data = mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, "d", form_key)
-    data.update(flujo_data)
-
-def mostrar_seccion_distribuidorB(data, es_directo=False):
-    """VERSIÓN NUEVA - Reemplaza la función existente"""
-    st.markdown(f'<div class="section-header"><h2>Ingrese los datos del distribuidor</h2></div>', unsafe_allow_html=True)
-    
-    form_key = st.session_state.form_key
-    
-    # Inicializar variables
-    contacto_nombre = ""
-    contacto_telefono = ""
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        nombre_fantasia = st.text_input("Nombre de Fantasía *", placeholder="Ejemplo: Syemed", key=f"db_nombre_{form_key}")
-        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"db_razon_{form_key}")
-        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"db_cuit_{form_key}", max_chars=11)
-        cuit = validar_solo_numeros(cuit_input)
-        if cuit_input and not cuit_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el CUIT")
-        
-    
-    with col2:
-        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"db_contacto_tec_{form_key}")
-        if contacto_tecnico == "Sí":
-                telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
-                contacto_telefono = validar_solo_numeros(telefono_input)
-                if telefono_input and not telefono_input.isdigit():
-                    st.warning("⚠️ Solo se permiten números en el teléfono")
-                contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
-
-    data.update({
-        'nombre_fantasia': nombre_fantasia,
-        'razon_social': razon_social,
-        'cuit': cuit,
-        'contacto_nombre': contacto_nombre,
-        'contacto_telefono': contacto_telefono,
-        'contacto_tecnico': contacto_tecnico
-    })
-    
-    # NUEVO FLUJO CONDICIONAL
-    flujo_data = mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, "db", form_key)
-    data.update(flujo_data)
-
-
-def mostrar_seccion_institucion(data, es_directo=False):
-    """VERSIÓN NUEVA - Reemplaza la función existente"""
-    st.markdown(f'<div class="section-header"><h2>Institución</h2></div>', unsafe_allow_html=True)
-    
-    form_key = st.session_state.form_key
-    
-    # Inicializar variables
-    contacto_nombre = ""
-    contacto_telefono = ""
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        nombre_fantasia = st.text_input("Nombre del Hospital/Clínica/Sanatorio *", key=f"i_nombre_{form_key}")
-        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"i_razon_{form_key}")
-        cuit_input = st.text_input("CUIT (solo números)", placeholder="30718343832", key=f"i_cuit_{form_key}", max_chars=11)
-        cuit = validar_solo_numeros(cuit_input)
-        if cuit_input and not cuit_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el CUIT")
-        contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"i_contacto_{form_key}")
-    
-    with col2:
-        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"db_contacto_tec_{form_key}")
-        if contacto_tecnico == "Sí":
-                telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
-                contacto_telefono = validar_solo_numeros(telefono_input)
-                if telefono_input and not telefono_input.isdigit():
-                    st.warning("⚠️ Solo se permiten números en el teléfono")
-                contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
-        comercial_syemed = st.selectbox("Comercial de contacto en Syemed *", COMERCIALES, key=f"i_comercial_{form_key}")
-        
-    
-    data.update({
-        'nombre_fantasia': nombre_fantasia,
-        'razon_social': razon_social,
-        'cuit': cuit,
-        'contacto_nombre': contacto_nombre,
-        'contacto_telefono': contacto_telefono,
-        'comercial_syemed': comercial_syemed,
-        'contacto_tecnico': contacto_tecnico
-    })
-    
-    # NUEVO FLUJO CONDICIONAL
-    flujo_data = mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, "i", form_key)
-    data.update(flujo_data)
-
-
-def mostrar_seccion_institucionB(data, es_directo=False):
-    """VERSIÓN NUEVA - Reemplaza la función existente"""
-    st.markdown(f'<div class="section-header"><h2>Ingrese los datos de la Institución</h2></div>', unsafe_allow_html=True)
-    
-    form_key = st.session_state.form_key
-    
-    # Inicializar variables
-    contacto_nombre = ""
-    contacto_telefono = ""
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        nombre_fantasia = st.text_input("Nombre del Hospital/Clínica/Sanatorio *", key=f"ib_nombre_{form_key}")
-        razon_social = st.text_input("Razón Social *", placeholder="Ejemplo: Grupo Syemed SRL", key=f"ib_razon_{form_key}")
-        cuit_input = st.text_input("CUIT * (solo números)", placeholder="30718343832", key=f"ib_cuit_{form_key}", max_chars=11)
-        cuit = validar_solo_numeros(cuit_input)
-        if cuit_input and not cuit_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el CUIT")
-        
-    
-    with col2:
-        contacto_tecnico = st.selectbox("¿Quiere que lo contactemos desde el área técnica? *", ["", "Sí", "No"], key=f"ib_contacto_tec_{form_key}")
-        if contacto_tecnico == "Sí":
-                telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"d_tel_{form_key}", max_chars=15)
-                contacto_telefono = validar_solo_numeros(telefono_input)
-                if telefono_input and not telefono_input.isdigit():
-                    st.warning("⚠️ Solo se permiten números en el teléfono")
-                contacto_nombre = st.text_input("Nombre de contacto para Servicio Técnico *", key=f"d_contacto_{form_key}")
-    
-    data.update({
-        'nombre_fantasia': nombre_fantasia,
-        'razon_social': razon_social,
-        'cuit': cuit,
-        'contacto_nombre': contacto_nombre,
-        'contacto_telefono': contacto_telefono,
-        'contacto_tecnico': contacto_tecnico
-    })
-    
-    # NUEVO FLUJO CONDICIONAL
-    flujo_data = mostrar_flujo_motivo_solicitud_distribuidor_institucion(data, "ib", form_key)
-    data.update(flujo_data)
-
-
-
-
-    
-def mostrar_seccion_paciente(data, es_directo=False):
-    
-    st.markdown(f'<div class="section-header"><h2>Paciente/Particular</h2></div>', unsafe_allow_html=True)
-    
-    form_key = st.session_state.form_key
-
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        nombre_apellido = st.text_input("Nombre y Apellido *", key=f"p_nombreyapellido_{form_key}" )
-        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"p_telefono_{form_key}", max_chars=15)
-        telefono = validar_solo_numeros(telefono_input)
-        if telefono_input and not telefono_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el teléfono")
-        
-    with col2:
-        equipo_origen = st.selectbox("El equipo... *", ["", "Lo compró de manera directa", "Se lo entregaron"], key=f"p_equipoorigen_{form_key}" )
-        quien_entrego = ""
-        if equipo_origen == "Se lo entregaron":
-            quien_entrego = st.text_area("¿Quién lo entregó?", placeholder="Obra Social, Distribuidor, Ortopedia, Plataformas Digitales, etc.", key=f"p_quienentrego_{form_key}" )
-        
-        motivo_solicitud = st.selectbox("Motivo de la solicitud *", ["", "Servicio Técnico (reparaciones de equipos en general)", "Servicio de Asistencia Técnica (para nuestros productos adquiridos)", "Baja de Alquiler", "Cambio por falla de funcionamiento crítica"], key=f"p_motivosolicitud_{form_key}")
-        # Normalizar el valor para compatibilidad con BD
-        motivo_solicitud = normalizar_motivo_solicitud(motivo_solicitud)
-    
-    data.update({
-        'nombre_apellido_paciente': nombre_apellido,
-        'telefono_paciente': telefono,
-        'equipo_origen': equipo_origen,
-        'quien_entrego': quien_entrego,
-        'motivo_solicitud': motivo_solicitud
-    })
 def mostrar_seccion_baja_alquiler(data):
     """Muestra la sección condicional para motivo de baja en alquileres"""
     st.markdown('<div class="section-header"><h2>Motivo de Baja de Alquiler</h2></div>', unsafe_allow_html=True)
@@ -3941,10 +4083,25 @@ def mostrar_seccion_equipos(data, contexto="general"):
             col1, col2 = st.columns(2)
             with col1:
                 tipo_equipo = st.selectbox(f"Tipo de Equipo ({i+1}) *", TIPOS_EQUIPO, key=f"tipo_{contexto}_{i}_{form_key}")
-                marca_equipo = st.selectbox(f"Marca de Equipo ({i+1}) (opcional)", MARCAS_EQUIPO, key=f"marca_{contexto}_{i}_{form_key}")
+                
+                # Marca dinámica
+                marcas_disponibles = obtener_marcas_por_tipo(tipo_equipo)
+                marca_equipo = st.selectbox(
+                    f"Marca de Equipo ({i+1}) (opcional)", 
+                    marcas_disponibles, 
+                    key=f"marca_{contexto}_{i}_{form_key}",
+                    help="Marcas filtradas según el tipo"
+                )
                 
             with col2:
-                modelo_equipo = st.selectbox(f"Modelo de Equipo ({i+1}) (opcional)", MODELOS_EQUIPO, key=f"modelo_{contexto}_{i}_{form_key}")
+                # Modelo dinámico
+                modelos_disponibles = obtener_modelos_por_marca(tipo_equipo, marca_equipo)
+                modelo_equipo = st.selectbox(
+                    f"Modelo de Equipo ({i+1}) (opcional)", 
+                    modelos_disponibles, 
+                    key=f"modelo_{contexto}_{i}_{form_key}",
+                    help="Modelos filtrados según tipo y marca"
+                )
                 numero_serie = st.text_input(f"Número de Serie ({i+1}) (opcional)", key=f"serie_{contexto}_{i}_{form_key}")
                 
                 # CAMBIO: Obtener garantía desde Información del Equipo (data)
@@ -4038,19 +4195,34 @@ def mostrar_seccion_equipos(data, contexto="general"):
                     index=TIPOS_EQUIPO.index(grupo.get('tipo', 'Seleccionar tipo...')) if grupo.get('tipo') in TIPOS_EQUIPO else 0,
                     key=f"tipo_grupo_{contexto}_{idx}_{form_key}"
                 )
+                
+                # Marca dinámica según tipo
+                marcas_disponibles = obtener_marcas_por_tipo(tipo)
+                marca_index = 0
+                if grupo.get('marca') and grupo.get('marca') in marcas_disponibles:
+                    marca_index = marcas_disponibles.index(grupo.get('marca'))
+                
                 marca = st.selectbox(
                     "Marca (opcional)",
-                    MARCAS_EQUIPO,
-                    index=MARCAS_EQUIPO.index(grupo.get('marca', 'Seleccionar marca...')) if grupo.get('marca') in MARCAS_EQUIPO else 0,
-                    key=f"marca_grupo_{contexto}_{idx}_{form_key}"
+                    marcas_disponibles,
+                    index=marca_index,
+                    key=f"marca_grupo_{contexto}_{idx}_{form_key}",
+                    help="Marcas filtradas según el tipo de equipo"
                 )
             
             with col2:
+                # Modelo dinámico según tipo y marca
+                modelos_disponibles = obtener_modelos_por_marca(tipo, marca)
+                modelo_index = 0
+                if grupo.get('modelo') and grupo.get('modelo') in modelos_disponibles:
+                    modelo_index = modelos_disponibles.index(grupo.get('modelo'))
+                
                 modelo = st.selectbox(
                     "Modelo (opcional)",
-                    MODELOS_EQUIPO,
-                    index=MODELOS_EQUIPO.index(grupo.get('modelo', 'Seleccionar modelo...')) if grupo.get('modelo') in MODELOS_EQUIPO else 0,
-                    key=f"modelo_grupo_{contexto}_{idx}_{form_key}"
+                    modelos_disponibles,
+                    index=modelo_index,
+                    key=f"modelo_grupo_{contexto}_{idx}_{form_key}",
+                    help="Modelos filtrados según tipo y marca"
                 )
                 
                 # Opción para números de serie
@@ -4168,32 +4340,6 @@ def mostrar_seccion_equipos(data, contexto="general"):
     
     data['equipos'] = equipos
     
-def mostrar_seccion_paciente(data, es_directo=False):
-    """VERSIÓN NUEVA - Reemplaza la función existente"""
-    st.markdown(f'<div class="section-header"><h2>Paciente/Particular</h2></div>', unsafe_allow_html=True)
-    
-    form_key = st.session_state.form_key
-
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        nombre_apellido = st.text_input("Nombre y Apellido *", key=f"p_nombreyapellido_{form_key}")
-        
-    with col2:
-        telefono_input = st.text_input("Teléfono de contacto * (solo números)", placeholder="1123730278", key=f"p_telefono_{form_key}", max_chars=15)
-        telefono = validar_solo_numeros(telefono_input)
-        if telefono_input and not telefono_input.isdigit():
-            st.warning("⚠️ Solo se permiten números en el teléfono")
-    
-    data.update({
-        'nombre_apellido_paciente': nombre_apellido,
-        'telefono_paciente': telefono
-    })
-    
-    # NUEVO FLUJO CONDICIONAL
-    flujo_data = mostrar_flujo_motivo_solicitud_paciente(data, form_key)
-    data.update(flujo_data)
-
 def procesar_formulario(data):
     """Procesar formulario incluyendo subida de archivos"""
     
